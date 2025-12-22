@@ -1479,26 +1479,24 @@
                             <thead>
                                 <tr>
                                     <th style="width: 40px;"></th>
-                                    <th>Title</th>
-                                    <th>Tx ID</th>
-                                    <th>Owner</th>
-                                    <th>Type</th>
+                                    <th style="cursor: pointer;" onclick="sortBudgetTable('title')">Title <span id="sort-title"></span></th>
+                                    <th style="cursor: pointer;" onclick="sortBudgetTable('owner')">Owner <span id="sort-owner"></span></th>
+                                    <th style="cursor: pointer;" onclick="sortBudgetTable('type')">Type <span id="sort-type"></span></th>
                                     <th>From</th>
                                     <th>To</th>
-                                    <th>Status</th>
-                                    <th class="month-col">Jan</th>
-                                    <th class="month-col">Feb</th>
-                                    <th class="month-col">Mar</th>
-                                    <th class="month-col">Apr</th>
-                                    <th class="month-col">May</th>
-                                    <th class="month-col">Jun</th>
-                                    <th class="month-col">Jul</th>
-                                    <th class="month-col">Aug</th>
-                                    <th class="month-col">Sep</th>
-                                    <th class="month-col">Oct</th>
-                                    <th class="month-col">Nov</th>
-                                    <th class="month-col">Dec</th>
-                                    <th class="month-col">Avg</th>
+                                    <th class="month-col" style="cursor: pointer;" onclick="sortBudgetTable('jan')">Jan <span id="sort-jan"></span></th>
+                                    <th class="month-col" style="cursor: pointer;" onclick="sortBudgetTable('feb')">Feb <span id="sort-feb"></span></th>
+                                    <th class="month-col" style="cursor: pointer;" onclick="sortBudgetTable('mar')">Mar <span id="sort-mar"></span></th>
+                                    <th class="month-col" style="cursor: pointer;" onclick="sortBudgetTable('apr')">Apr <span id="sort-apr"></span></th>
+                                    <th class="month-col" style="cursor: pointer;" onclick="sortBudgetTable('may')">May <span id="sort-may"></span></th>
+                                    <th class="month-col" style="cursor: pointer;" onclick="sortBudgetTable('jun')">Jun <span id="sort-jun"></span></th>
+                                    <th class="month-col" style="cursor: pointer;" onclick="sortBudgetTable('jul')">Jul <span id="sort-jul"></span></th>
+                                    <th class="month-col" style="cursor: pointer;" onclick="sortBudgetTable('aug')">Aug <span id="sort-aug"></span></th>
+                                    <th class="month-col" style="cursor: pointer;" onclick="sortBudgetTable('sep')">Sep <span id="sort-sep"></span></th>
+                                    <th class="month-col" style="cursor: pointer;" onclick="sortBudgetTable('oct')">Oct <span id="sort-oct"></span></th>
+                                    <th class="month-col" style="cursor: pointer;" onclick="sortBudgetTable('nov')">Nov <span id="sort-nov"></span></th>
+                                    <th class="month-col" style="cursor: pointer;" onclick="sortBudgetTable('dec')">Dec <span id="sort-dec"></span></th>
+                                    <th class="month-col" style="cursor: pointer;" onclick="sortBudgetTable('avg')">Avg <span id="sort-avg"></span></th>
                                 </tr>
                             </thead>
                             <tbody id="budgetTableBody">
@@ -1650,11 +1648,11 @@
                     <table class="entities-table" id="entitiesTable">
                         <thead>
                             <tr>
-                                <th>ID</th>
-                                <th>Name</th>
+                                <th style="cursor: pointer;" onclick="sortEntitiesTable('id')">ID <span id="entities-sort-id"></span></th>
+                                <th style="cursor: pointer;" onclick="sortEntitiesTable('name')">Name <span id="entities-sort-name"></span></th>
                                 <th>Description</th>
-                                <th>Type</th>
-                                <th>Owner</th>
+                                <th style="cursor: pointer;" onclick="sortEntitiesTable('type')">Type <span id="entities-sort-type"></span></th>
+                                <th style="cursor: pointer;" onclick="sortEntitiesTable('owner')">Owner <span id="entities-sort-owner"></span></th>
                                 <th>Parent Account</th>
                                 <th style="width: 100px;">Actions</th>
                             </tr>
@@ -1673,9 +1671,9 @@
                     <table class="entities-table" id="yearsTable">
                         <thead>
                             <tr>
-                                <th>Year</th>
-                                <th>Status</th>
-                                <th>Budget Lines</th>
+                                <th style="cursor: pointer;" onclick="sortYearsTable('year')">Year <span id="years-sort-year"></span></th>
+                                <th style="cursor: pointer;" onclick="sortYearsTable('status')">Status <span id="years-sort-status"></span></th>
+                                <th style="cursor: pointer;" onclick="sortYearsTable('lines')">Budget Lines <span id="years-sort-lines"></span></th>
                                 <th style="width: 100px;">Actions</th>
                             </tr>
                         </thead>
@@ -1701,13 +1699,13 @@
                     <table class="entities-table" id="txRegistryTable">
                         <thead>
                             <tr>
-                                <th>Transaction ID</th>
-                                <th>Title</th>
-                                <th>Type</th>
-                                <th>Owner</th>
+                                <th style="cursor: pointer;" onclick="sortTxRegistryTable('txId')">Transaction ID <span id="txreg-sort-txId"></span></th>
+                                <th style="cursor: pointer;" onclick="sortTxRegistryTable('title')">Title <span id="txreg-sort-title"></span></th>
+                                <th style="cursor: pointer;" onclick="sortTxRegistryTable('type')">Type <span id="txreg-sort-type"></span></th>
+                                <th style="cursor: pointer;" onclick="sortTxRegistryTable('owner')">Owner <span id="txreg-sort-owner"></span></th>
                                 <th>Destination (Creditor)</th>
-                                <th>Avg/Month</th>
-                                <th>Year</th>
+                                <th style="cursor: pointer;" onclick="sortTxRegistryTable('avg')">Avg/Month <span id="txreg-sort-avg"></span></th>
+                                <th style="cursor: pointer;" onclick="sortTxRegistryTable('year')">Year <span id="txreg-sort-year"></span></th>
                             </tr>
                         </thead>
                         <tbody id="txRegistryTableBody">
@@ -3223,8 +3221,15 @@
             // Populate parent account dropdown with all accounts
             const parentAccountSelect = document.getElementById('entityParentAccount');
             const accountEntities = entities.filter(e => e.type === 'Account');
+            // Sort alphabetically by name
+            accountEntities.sort((a, b) => a.name.localeCompare(b.name));
             parentAccountSelect.innerHTML = '<option value="">— No parent account —</option>' +
-                accountEntities.map(e => `<option value="${e.id}">${e.name} (${e.owner})</option>`).join('');
+                accountEntities.map(e => {
+                    const bgColor = e.owner === 'Seb' ? 'rgba(29, 155, 240, 0.2)' : 
+                                    e.owner === 'Gea' ? 'rgba(168, 85, 247, 0.2)' : 
+                                    e.owner === 'Shared' ? 'rgba(0, 186, 124, 0.2)' : '';
+                    return `<option value="${e.id}" style="background: ${bgColor};">${e.name} (${e.owner})</option>`;
+                }).join('');
             
             if (entityId) {
                 title.textContent = 'Edit Entity';
@@ -3359,6 +3364,54 @@
             `}).join('');
         }
 
+        // State for entities table sorting
+        let entitiesSortColumn = null;
+        let entitiesSortDirection = 'asc';
+
+        function sortEntitiesTable(column) {
+            if (entitiesSortColumn === column) {
+                entitiesSortDirection = entitiesSortDirection === 'asc' ? 'desc' : 'asc';
+            } else {
+                entitiesSortColumn = column;
+                entitiesSortDirection = 'asc';
+            }
+
+            document.querySelectorAll('[id^="entities-sort-"]').forEach(span => span.textContent = '');
+            const indicator = document.getElementById(`entities-sort-${column}`);
+            if (indicator) {
+                indicator.textContent = entitiesSortDirection === 'asc' ? '▲' : '▼';
+            }
+
+            const sortedEntities = [...entities].sort((a, b) => {
+                let aVal, bVal;
+                
+                if (column === 'id') {
+                    aVal = a.id;
+                    bVal = b.id;
+                } else if (column === 'name') {
+                    aVal = a.name.toLowerCase();
+                    bVal = b.name.toLowerCase();
+                } else if (column === 'type') {
+                    aVal = a.type;
+                    bVal = b.type;
+                } else if (column === 'owner') {
+                    aVal = a.owner;
+                    bVal = b.owner;
+                }
+
+                if (entitiesSortDirection === 'asc') {
+                    return aVal < bVal ? -1 : aVal > bVal ? 1 : 0;
+                } else {
+                    return aVal > bVal ? -1 : aVal < bVal ? 1 : 0;
+                }
+            });
+
+            const originalEntities = entities;
+            entities = sortedEntities;
+            renderEntitiesTable();
+            entities = originalEntities;
+        }
+
         function updateEntityTypeOptions() {
             const entityType = document.getElementById('entityType').value;
             const allOption = document.querySelector('#entityOwner option[value="All"]');
@@ -3478,18 +3531,28 @@
                 destEntities = entities.filter(e => e.type === 'Account' || e.type === 'Card');
             }
             
+            // Sort alphabetically by name
+            sourceEntities.sort((a, b) => a.name.localeCompare(b.name));
+            destEntities.sort((a, b) => a.name.localeCompare(b.name));
+            
             sourceSelect.innerHTML = '<option value="">— Select Source —</option>' + 
                 sourceEntities.map(e => {
                     const ownerLabel = e.owner === 'All' ? 'All Owners' : e.owner;
                     const showOwner = e.type === 'Income Source' || e.type === 'Creditor';
-                    return `<option value="${e.id}">${e.name} (${e.type}${showOwner ? ' • ' + ownerLabel : ''})</option>`;
+                    const bgColor = e.owner === 'Seb' ? 'rgba(29, 155, 240, 0.2)' : 
+                                    e.owner === 'Gea' ? 'rgba(168, 85, 247, 0.2)' : 
+                                    e.owner === 'Shared' ? 'rgba(0, 186, 124, 0.2)' : '';
+                    return `<option value="${e.id}" style="background: ${bgColor};">${e.name} (${e.type}${showOwner ? ' • ' + ownerLabel : ''})</option>`;
                 }).join('');
             
             destSelect.innerHTML = '<option value="">— Select Destination —</option>' + 
                 destEntities.map(e => {
                     const ownerLabel = e.owner === 'All' ? 'All Owners' : e.owner;
                     const showOwner = e.type === 'Creditor';
-                    return `<option value="${e.id}">${e.name} (${e.type}${showOwner ? ' • ' + ownerLabel : ''})</option>`;
+                    const bgColor = e.owner === 'Seb' ? 'rgba(29, 155, 240, 0.2)' : 
+                                    e.owner === 'Gea' ? 'rgba(168, 85, 247, 0.2)' : 
+                                    e.owner === 'Shared' ? 'rgba(0, 186, 124, 0.2)' : '';
+                    return `<option value="${e.id}" style="background: ${bgColor};">${e.name} (${e.type}${showOwner ? ' • ' + ownerLabel : ''})</option>`;
                 }).join('');
         }
 
@@ -3657,7 +3720,7 @@
             if (filteredLines.length === 0) {
                 tbody.innerHTML = `
                     <tr>
-                        <td colspan="21" class="empty-state">
+                        <td colspan="19" class="empty-state">
                             <h3>No budget lines found</h3>
                             <p>Add your first transaction to get started.</p>
                         </td>
@@ -3681,12 +3744,10 @@
                             </div>
                         </td>
                         <td><strong>${line.title}</strong></td>
-                        <td><code style="font-size: 10px; color: var(--text-muted);">${line.transactionId || '—'}</code></td>
                         <td>${line.owner}</td>
                         <td><span class="type-badge type-${line.type.toLowerCase()}">${line.type}</span></td>
                         <td>${getEntityName(line.sourceId)}</td>
                         <td>${getEntityName(line.destinationId)}</td>
-                        <td><span class="status-badge status-${line.status?.toLowerCase().replace(' ', '-') || 'confirmed'}">${line.status || 'Confirmed'}</span></td>
                         ${MONTHS.map(m => `<td class="month-val">${formatNumber(line.monthlyValues?.[m] || 0)}</td>`).join('')}
                         <td class="avg-val">${formatNumber(avg)}</td>
                     </tr>
@@ -3720,21 +3781,131 @@
 
             tfoot.innerHTML = `
                 <tr>
-                    <td colspan="8" style="text-align: right; font-weight: 600; color: var(--accent-green);">Total Income</td>
+                    <td colspan="6" style="text-align: right; font-weight: 600; color: var(--accent-green);">Total Income</td>
                     ${MONTHS.map(m => `<td class="month-val" style="color: var(--accent-green);">${formatNumber(totals.income[m])}</td>`).join('')}
                     <td class="avg-val" style="color: var(--accent-green);">${formatNumber(avgIncome)}</td>
                 </tr>
                 <tr>
-                    <td colspan="8" style="text-align: right; font-weight: 600; color: var(--accent-red);">Total Expenses</td>
+                    <td colspan="6" style="text-align: right; font-weight: 600; color: var(--accent-red);">Total Expenses</td>
                     ${MONTHS.map(m => `<td class="month-val" style="color: var(--accent-red);">${formatNumber(totals.expense[m])}</td>`).join('')}
                     <td class="avg-val" style="color: var(--accent-red);">${formatNumber(avgExpense)}</td>
                 </tr>
                 <tr>
-                    <td colspan="8" style="text-align: right; font-weight: 600;">Net Cashflow</td>
+                    <td colspan="6" style="text-align: right; font-weight: 600;">Net Cashflow</td>
                     ${MONTHS.map(m => `<td class="month-val ${totals.net[m] >= 0 ? 'summary-positive' : 'summary-negative'}">${formatNumber(totals.net[m])}</td>`).join('')}
                     <td class="avg-val ${avgNet >= 0 ? 'summary-positive' : 'summary-negative'}">${formatNumber(avgNet)}</td>
                 </tr>
             `;
+        }
+
+        // State for budget table sorting
+        let budgetSortColumn = null;
+        let budgetSortDirection = 'asc';
+
+        function sortBudgetTable(column) {
+            // Toggle direction if clicking same column, otherwise start with ascending
+            if (budgetSortColumn === column) {
+                budgetSortDirection = budgetSortDirection === 'asc' ? 'desc' : 'asc';
+            } else {
+                budgetSortColumn = column;
+                budgetSortDirection = 'asc';
+            }
+
+            // Clear all sort indicators
+            document.querySelectorAll('[id^="sort-"]').forEach(span => span.textContent = '');
+            
+            // Set current sort indicator
+            const indicator = document.getElementById(`sort-${column}`);
+            if (indicator) {
+                indicator.textContent = budgetSortDirection === 'asc' ? '▲' : '▼';
+            }
+
+            // Get filtered lines (apply same filters as renderBudgetTable)
+            let filteredLines = [...budgetLines];
+            
+            const filterOwner = document.getElementById('filterOwner').value;
+            const filterType = document.getElementById('filterType').value;
+            const filterSource = document.getElementById('filterSource').value;
+            const filterDest = document.getElementById('filterDestination').value;
+            const filterStatus = document.getElementById('filterStatus').value;
+            const filterTxId = document.getElementById('filterTxId').value.toLowerCase();
+            
+            if (filterOwner) filteredLines = filteredLines.filter(l => l.owner === filterOwner);
+            if (filterType) filteredLines = filteredLines.filter(l => l.type === filterType);
+            if (filterSource) filteredLines = filteredLines.filter(l => l.sourceId === filterSource);
+            if (filterDest) filteredLines = filteredLines.filter(l => l.destinationId === filterDest);
+            if (filterStatus) filteredLines = filteredLines.filter(l => l.status === filterStatus);
+            if (filterTxId) filteredLines = filteredLines.filter(l => 
+                (l.transactionId || '').toLowerCase().includes(filterTxId) || 
+                l.title.toLowerCase().includes(filterTxId)
+            );
+
+            // Sort based on column
+            filteredLines.sort((a, b) => {
+                let aVal, bVal;
+                
+                if (column === 'title') {
+                    aVal = a.title.toLowerCase();
+                    bVal = b.title.toLowerCase();
+                } else if (column === 'owner') {
+                    aVal = a.owner;
+                    bVal = b.owner;
+                } else if (column === 'type') {
+                    aVal = a.type;
+                    bVal = b.type;
+                } else if (column === 'avg') {
+                    aVal = MONTHS.reduce((sum, m) => sum + (a.monthlyValues?.[m] || 0), 0) / 12;
+                    bVal = MONTHS.reduce((sum, m) => sum + (b.monthlyValues?.[m] || 0), 0) / 12;
+                } else if (MONTHS.includes(column)) {
+                    // Sorting by specific month
+                    aVal = a.monthlyValues?.[column] || 0;
+                    bVal = b.monthlyValues?.[column] || 0;
+                }
+
+                // Handle numeric vs string comparison
+                if (typeof aVal === 'number' && typeof bVal === 'number') {
+                    return budgetSortDirection === 'asc' ? aVal - bVal : bVal - aVal;
+                } else {
+                    if (budgetSortDirection === 'asc') {
+                        return aVal < bVal ? -1 : aVal > bVal ? 1 : 0;
+                    } else {
+                        return aVal > bVal ? -1 : aVal < bVal ? 1 : 0;
+                    }
+                }
+            });
+
+            // Temporarily override budgetLines with sorted data for rendering
+            const originalLines = budgetLines;
+            budgetLines = filteredLines;
+            
+            // Re-render the table (it will use the sorted filteredLines)
+            const tbody = document.getElementById('budgetTableBody');
+            tbody.innerHTML = filteredLines.map(line => {
+                const avg = MONTHS.reduce((sum, m) => sum + (line.monthlyValues?.[m] || 0), 0) / 12;
+                const ownerClass = `owner-${line.owner.toLowerCase()}`;
+                const needsUpdate = line.status === 'Needs Update' ? 'needs-update' : '';
+                
+                return `
+                    <tr class="${ownerClass} ${needsUpdate}">
+                        <td>
+                            <div class="row-actions">
+                                <button onclick="showTransactionModal('${line.id}')" title="Edit">✏️</button>
+                                <button onclick="deleteTransaction('${line.id}')" title="Delete">🗑️</button>
+                            </div>
+                        </td>
+                        <td><strong>${line.title}</strong></td>
+                        <td>${line.owner}</td>
+                        <td><span class="type-badge type-${line.type.toLowerCase()}">${line.type}</span></td>
+                        <td>${getEntityName(line.sourceId)}</td>
+                        <td>${getEntityName(line.destinationId)}</td>
+                        ${MONTHS.map(m => `<td class="month-val">${formatNumber(line.monthlyValues?.[m] || 0)}</td>`).join('')}
+                        <td class="avg-val">${formatNumber(avg)}</td>
+                    </tr>
+                `;
+            }).join('');
+            
+            // Restore original budgetLines
+            budgetLines = originalLines;
         }
 
         function updateNeedsUpdateBanner() {
@@ -3765,11 +3936,25 @@
             const sourceEntities = entities.filter(e => e.type === 'Account' || e.type === 'Card' || e.type === 'Income Source');
             const destEntities = entities.filter(e => e.type === 'Account' || e.type === 'Card' || e.type === 'Creditor');
             
+            // Sort alphabetically by name
+            sourceEntities.sort((a, b) => a.name.localeCompare(b.name));
+            destEntities.sort((a, b) => a.name.localeCompare(b.name));
+            
             sourceFilter.innerHTML = '<option value="">All Sources</option>' + 
-                sourceEntities.map(e => `<option value="${e.id}">${e.name} (${e.type})</option>`).join('');
+                sourceEntities.map(e => {
+                    const bgColor = e.owner === 'Seb' ? 'rgba(29, 155, 240, 0.2)' : 
+                                    e.owner === 'Gea' ? 'rgba(168, 85, 247, 0.2)' : 
+                                    e.owner === 'Shared' ? 'rgba(0, 186, 124, 0.2)' : '';
+                    return `<option value="${e.id}" style="background: ${bgColor};">${e.name} (${e.type})</option>`;
+                }).join('');
             
             destFilter.innerHTML = '<option value="">All Destinations</option>' + 
-                destEntities.map(e => `<option value="${e.id}">${e.name} (${e.type})</option>`).join('');
+                destEntities.map(e => {
+                    const bgColor = e.owner === 'Seb' ? 'rgba(29, 155, 240, 0.2)' : 
+                                    e.owner === 'Gea' ? 'rgba(168, 85, 247, 0.2)' : 
+                                    e.owner === 'Shared' ? 'rgba(0, 186, 124, 0.2)' : '';
+                    return `<option value="${e.id}" style="background: ${bgColor};">${e.name} (${e.type})</option>`;
+                }).join('');
         }
 
         function setupFilterListeners() {
@@ -3809,6 +3994,55 @@
             }).join('');
         }
 
+        // State for years table sorting
+        let yearsSortColumn = null;
+        let yearsSortDirection = 'asc';
+
+        function sortYearsTable(column) {
+            if (yearsSortColumn === column) {
+                yearsSortDirection = yearsSortDirection === 'asc' ? 'desc' : 'asc';
+            } else {
+                yearsSortColumn = column;
+                yearsSortDirection = 'asc';
+            }
+
+            document.querySelectorAll('[id^="years-sort-"]').forEach(span => span.textContent = '');
+            const indicator = document.getElementById(`years-sort-${column}`);
+            if (indicator) {
+                indicator.textContent = yearsSortDirection === 'asc' ? '▲' : '▼';
+            }
+
+            const sortedYears = [...years].sort((a, b) => {
+                let aVal, bVal;
+                
+                if (column === 'year') {
+                    aVal = parseInt(a.id);
+                    bVal = parseInt(b.id);
+                } else if (column === 'status') {
+                    aVal = a.isArchived ? 1 : 0;
+                    bVal = b.isArchived ? 1 : 0;
+                } else if (column === 'lines') {
+                    aVal = budgetLines.filter(l => l.year === a.id).length;
+                    bVal = budgetLines.filter(l => l.year === b.id).length;
+                }
+
+                if (typeof aVal === 'number' && typeof bVal === 'number') {
+                    return yearsSortDirection === 'asc' ? aVal - bVal : bVal - aVal;
+                } else {
+                    if (yearsSortDirection === 'asc') {
+                        return aVal < bVal ? -1 : aVal > bVal ? 1 : 0;
+                    } else {
+                        return aVal > bVal ? -1 : aVal < bVal ? 1 : 0;
+                    }
+                }
+            });
+
+            const originalYears = years;
+            years = sortedYears;
+            renderYearsTable();
+            years = originalYears;
+        }
+
         function renderTransactionRegistry() {
             const tbody = document.getElementById('txRegistryTableBody');
             const searchTerm = (document.getElementById('txIdSearch')?.value || '').toLowerCase();
@@ -3824,6 +4058,98 @@
             
             registryLines.sort((a, b) => (a.transactionId || '').localeCompare(b.transactionId || ''));
             
+            if (registryLines.length === 0) {
+                tbody.innerHTML = `
+                    <tr>
+                        <td colspan="7" class="empty-state">
+                            <h3>${searchTerm ? 'No matches found' : 'No transaction IDs registered'}</h3>
+                            <p>${searchTerm ? 'Try a different search term.' : 'Add transaction IDs when creating or editing budget lines.'}</p>
+                        </td>
+                    </tr>
+                `;
+                return;
+            }
+
+            tbody.innerHTML = registryLines.map(line => {
+                const avg = MONTHS.reduce((sum, m) => sum + (line.monthlyValues?.[m] || 0), 0) / 12;
+                return `
+                    <tr style="cursor: pointer;" onclick="showTransactionModal('${line.id}')">
+                        <td><code style="font-family: 'SF Mono', Monaco, monospace; background: var(--bg-tertiary); padding: 2px 6px; border-radius: 4px;">${line.transactionId || '—'}</code></td>
+                        <td><strong>${line.title}</strong></td>
+                        <td><span class="type-badge type-${line.type.toLowerCase()}">${line.type}</span></td>
+                        <td>${line.owner}</td>
+                        <td>${getEntityName(line.destinationId)}</td>
+                        <td style="font-family: 'SF Mono', Monaco, monospace; text-align: right;">${formatNumber(avg)}</td>
+                        <td>${line.year}</td>
+                    </tr>
+                `;
+            }).join('');
+        }
+
+        // State for transaction registry table sorting
+        let txRegSortColumn = null;
+        let txRegSortDirection = 'asc';
+
+        function sortTxRegistryTable(column) {
+            if (txRegSortColumn === column) {
+                txRegSortDirection = txRegSortDirection === 'asc' ? 'desc' : 'asc';
+            } else {
+                txRegSortColumn = column;
+                txRegSortDirection = 'asc';
+            }
+
+            document.querySelectorAll('[id^="txreg-sort-"]').forEach(span => span.textContent = '');
+            const indicator = document.getElementById(`txreg-sort-${column}`);
+            if (indicator) {
+                indicator.textContent = txRegSortDirection === 'asc' ? '▲' : '▼';
+            }
+
+            const searchTerm = (document.getElementById('txIdSearch')?.value || '').toLowerCase();
+            
+            let registryLines = budgetLines.filter(line => {
+                if (!searchTerm) {
+                    return line.transactionId;
+                }
+                const matchesId = (line.transactionId || '').toLowerCase().includes(searchTerm);
+                const matchesTitle = line.title.toLowerCase().includes(searchTerm);
+                return matchesId || matchesTitle;
+            });
+
+            registryLines.sort((a, b) => {
+                let aVal, bVal;
+                
+                if (column === 'txId') {
+                    aVal = (a.transactionId || '').toLowerCase();
+                    bVal = (b.transactionId || '').toLowerCase();
+                } else if (column === 'title') {
+                    aVal = a.title.toLowerCase();
+                    bVal = b.title.toLowerCase();
+                } else if (column === 'type') {
+                    aVal = a.type;
+                    bVal = b.type;
+                } else if (column === 'owner') {
+                    aVal = a.owner;
+                    bVal = b.owner;
+                } else if (column === 'avg') {
+                    aVal = MONTHS.reduce((sum, m) => sum + (a.monthlyValues?.[m] || 0), 0) / 12;
+                    bVal = MONTHS.reduce((sum, m) => sum + (b.monthlyValues?.[m] || 0), 0) / 12;
+                } else if (column === 'year') {
+                    aVal = parseInt(a.year);
+                    bVal = parseInt(b.year);
+                }
+
+                if (typeof aVal === 'number' && typeof bVal === 'number') {
+                    return txRegSortDirection === 'asc' ? aVal - bVal : bVal - aVal;
+                } else {
+                    if (txRegSortDirection === 'asc') {
+                        return aVal < bVal ? -1 : aVal > bVal ? 1 : 0;
+                    } else {
+                        return aVal > bVal ? -1 : aVal < bVal ? 1 : 0;
+                    }
+                }
+            });
+
+            const tbody = document.getElementById('txRegistryTableBody');
             if (registryLines.length === 0) {
                 tbody.innerHTML = `
                     <tr>
