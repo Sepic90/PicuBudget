@@ -1,0 +1,2706 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Picu Budget</title>
+    
+    <!-- Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+    
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+    
+    <!-- SheetJS for Excel Export -->
+    <script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>
+    
+    <style>
+        :root {
+            --bg-primary: #0f1419;
+            --bg-secondary: #1a1f26;
+            --bg-tertiary: #242b33;
+            --bg-hover: #2d353f;
+            --border-color: #3a4149;
+            --text-primary: #e7e9ea;
+            --text-secondary: #8b98a5;
+            --text-muted: #6e7681;
+            --accent-blue: #1d9bf0;
+            --accent-green: #00ba7c;
+            --accent-red: #f4212e;
+            --accent-yellow: #ffd400;
+            --accent-purple: #7856ff;
+            --owner-seb: rgba(29, 155, 240, 0.12);
+            --owner-gea: rgba(136, 84, 208, 0.12);
+            --owner-shared: rgba(0, 186, 124, 0.12);
+            --status-needs-update: rgba(255, 212, 0, 0.2);
+            --modal-overlay: rgba(0, 0, 0, 0.7);
+        }
+
+        [data-theme="light"] {
+            --bg-primary: #f5f7fa;
+            --bg-secondary: #ffffff;
+            --bg-tertiary: #eef1f5;
+            --bg-hover: #e4e8ed;
+            --border-color: #d0d7de;
+            --text-primary: #1f2328;
+            --text-secondary: #57606a;
+            --text-muted: #8b949e;
+            --accent-blue: #0969da;
+            --accent-green: #1a7f37;
+            --accent-red: #cf222e;
+            --accent-yellow: #9a6700;
+            --accent-purple: #6639ba;
+            --owner-seb: rgba(9, 105, 218, 0.1);
+            --owner-gea: rgba(102, 57, 186, 0.1);
+            --owner-shared: rgba(26, 127, 55, 0.1);
+            --status-needs-update: rgba(154, 103, 0, 0.15);
+            --modal-overlay: rgba(0, 0, 0, 0.4);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            font-size: 13px;
+            line-height: 1.4;
+            overflow-x: hidden;
+        }
+
+        /* Login Overlay */
+        .login-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: var(--bg-primary);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 10000;
+        }
+
+        .login-box {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 40px;
+            width: 360px;
+        }
+
+        .login-box h1 {
+            font-size: 24px;
+            margin-bottom: 8px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .login-box p {
+            color: var(--text-secondary);
+            margin-bottom: 24px;
+        }
+
+        .login-box input {
+            width: 100%;
+            padding: 12px 14px;
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            color: var(--text-primary);
+            font-size: 14px;
+            margin-bottom: 12px;
+        }
+
+        .login-box input:focus {
+            outline: none;
+            border-color: var(--accent-blue);
+        }
+
+        .login-box button {
+            width: 100%;
+            padding: 12px;
+            background: var(--accent-blue);
+            border: none;
+            border-radius: 6px;
+            color: white;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            margin-top: 8px;
+        }
+
+        .login-box button:hover {
+            background: #1a8cd8;
+        }
+
+        /* Main Layout */
+        .app-container {
+            display: none;
+            min-height: 100vh;
+        }
+
+        .app-container.visible {
+            display: block;
+        }
+
+        /* Top Navigation */
+        .top-nav {
+            background: var(--bg-secondary);
+            border-bottom: 1px solid var(--border-color);
+            padding: 0 24px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            height: 56px;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+
+        .nav-brand {
+            font-size: 18px;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .nav-tabs {
+            display: flex;
+            gap: 4px;
+        }
+
+        .nav-tab {
+            padding: 8px 16px;
+            background: transparent;
+            border: none;
+            color: var(--text-secondary);
+            font-size: 13px;
+            font-weight: 500;
+            cursor: pointer;
+            border-radius: 6px;
+            transition: all 0.15s;
+        }
+
+        .nav-tab:hover {
+            background: var(--bg-hover);
+            color: var(--text-primary);
+        }
+
+        .nav-tab.active {
+            background: var(--accent-blue);
+            color: white;
+        }
+
+        .nav-actions {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .year-selector {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            background: var(--bg-tertiary);
+            padding: 6px 12px;
+            border-radius: 6px;
+            border: 1px solid var(--border-color);
+        }
+
+        .year-selector select {
+            background: transparent;
+            border: none;
+            color: var(--text-primary);
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+        }
+
+        .year-selector select:focus {
+            outline: none;
+        }
+
+        /* Main Content */
+        .main-content {
+            padding: 24px;
+            max-width: 1800px;
+            margin: 0 auto;
+        }
+
+        .view-section {
+            display: none;
+        }
+
+        .view-section.active {
+            display: block;
+        }
+
+        /* Toolbar */
+        .toolbar {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 16px;
+            flex-wrap: wrap;
+            gap: 12px;
+        }
+
+        .toolbar-left {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+
+        .toolbar-right {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .filter-group {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .filter-group label {
+            color: var(--text-secondary);
+            font-size: 12px;
+        }
+
+        .filter-group select {
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+            color: var(--text-primary);
+            padding: 6px 10px;
+            font-size: 12px;
+            cursor: pointer;
+        }
+
+        .filter-group select:focus {
+            outline: none;
+            border-color: var(--accent-blue);
+        }
+
+        .btn {
+            padding: 8px 14px;
+            border: none;
+            border-radius: 6px;
+            font-size: 12px;
+            font-weight: 500;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            transition: all 0.15s;
+        }
+
+        .btn-primary {
+            background: var(--accent-blue);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: #1a8cd8;
+        }
+
+        .btn-success {
+            background: var(--accent-green);
+            color: white;
+        }
+
+        .btn-success:hover {
+            background: #00a56f;
+        }
+
+        .btn-secondary {
+            background: var(--bg-tertiary);
+            color: var(--text-primary);
+            border: 1px solid var(--border-color);
+        }
+
+        .btn-secondary:hover {
+            background: var(--bg-hover);
+        }
+
+        .btn-danger {
+            background: var(--accent-red);
+            color: white;
+        }
+
+        .btn-danger:hover {
+            background: #dc1d28;
+        }
+
+        .btn-warning {
+            background: var(--accent-yellow);
+            color: #000;
+        }
+
+        .btn-sm {
+            padding: 4px 8px;
+            font-size: 11px;
+        }
+
+        /* Budget Table */
+        .budget-table-container {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            overflow: hidden;
+        }
+
+        .budget-table-scroll {
+            overflow-x: auto;
+        }
+
+        .budget-table {
+            width: 100%;
+            border-collapse: collapse;
+            min-width: 1400px;
+        }
+
+        .budget-table th,
+        .budget-table td {
+            padding: 8px 10px;
+            text-align: left;
+            border-bottom: 1px solid var(--border-color);
+            white-space: nowrap;
+        }
+
+        .budget-table th {
+            background: var(--bg-tertiary);
+            color: var(--text-secondary);
+            font-weight: 600;
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            position: sticky;
+            top: 0;
+            z-index: 10;
+        }
+
+        .budget-table th.month-col {
+            text-align: right;
+            min-width: 75px;
+        }
+
+        .budget-table td.month-val {
+            text-align: right;
+            font-family: "SF Mono", Monaco, "Cascadia Code", monospace;
+            font-size: 12px;
+        }
+
+        .budget-table td.avg-val {
+            text-align: right;
+            font-family: "SF Mono", Monaco, "Cascadia Code", monospace;
+            font-size: 12px;
+            font-weight: 600;
+            background: var(--bg-tertiary);
+        }
+
+        .budget-table tbody tr:hover {
+            background: var(--bg-hover) !important;
+        }
+
+        .budget-table tbody tr.owner-seb {
+            background: var(--owner-seb);
+        }
+
+        .budget-table tbody tr.owner-gea {
+            background: var(--owner-gea);
+        }
+
+        .budget-table tbody tr.owner-shared {
+            background: var(--owner-shared);
+        }
+
+        .budget-table tbody tr.needs-update {
+            background: var(--status-needs-update) !important;
+        }
+
+        .type-badge {
+            display: inline-block;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-size: 10px;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+
+        .type-income {
+            background: rgba(0, 186, 124, 0.2);
+            color: var(--accent-green);
+        }
+
+        .type-expense {
+            background: rgba(244, 33, 46, 0.2);
+            color: var(--accent-red);
+        }
+
+        .type-transfer {
+            background: rgba(29, 155, 240, 0.2);
+            color: var(--accent-blue);
+        }
+
+        .status-badge {
+            display: inline-block;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-size: 10px;
+            font-weight: 500;
+        }
+
+        .status-confirmed {
+            background: rgba(0, 186, 124, 0.15);
+            color: var(--accent-green);
+        }
+
+        .status-needs-update {
+            background: rgba(255, 212, 0, 0.2);
+            color: var(--accent-yellow);
+        }
+
+        .row-actions {
+            display: flex;
+            gap: 4px;
+        }
+
+        .row-actions button {
+            padding: 4px 6px;
+            background: transparent;
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+            color: var(--text-secondary);
+            cursor: pointer;
+            font-size: 11px;
+        }
+
+        .row-actions button:hover {
+            background: var(--bg-hover);
+            color: var(--text-primary);
+        }
+
+        /* Summary Row */
+        .budget-table tfoot tr {
+            background: var(--bg-tertiary);
+            font-weight: 600;
+        }
+
+        .budget-table tfoot td {
+            border-top: 2px solid var(--border-color);
+        }
+
+        .summary-positive {
+            color: var(--accent-green);
+        }
+
+        .summary-negative {
+            color: var(--accent-red);
+        }
+
+        /* Modal */
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: var(--modal-overlay);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+        }
+
+        .modal-overlay.visible {
+            display: flex;
+        }
+
+        .modal {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            width: 600px;
+            max-width: 95vw;
+            max-height: 90vh;
+            overflow-y: auto;
+        }
+
+        .modal-header {
+            padding: 16px 20px;
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .modal-header h2 {
+            font-size: 16px;
+            font-weight: 600;
+        }
+
+        .modal-close {
+            background: transparent;
+            border: none;
+            color: var(--text-secondary);
+            font-size: 20px;
+            cursor: pointer;
+            padding: 4px 8px;
+            border-radius: 4px;
+        }
+
+        .modal-close:hover {
+            background: var(--bg-hover);
+            color: var(--text-primary);
+        }
+
+        .modal-body {
+            padding: 20px;
+        }
+
+        .modal-footer {
+            padding: 16px 20px;
+            border-top: 1px solid var(--border-color);
+            display: flex;
+            justify-content: flex-end;
+            gap: 8px;
+        }
+
+        /* Form Elements */
+        .form-group {
+            margin-bottom: 16px;
+        }
+
+        .form-group label {
+            display: block;
+            color: var(--text-secondary);
+            font-size: 12px;
+            font-weight: 500;
+            margin-bottom: 6px;
+        }
+
+        .form-group input,
+        .form-group select,
+        .form-group textarea {
+            width: 100%;
+            padding: 10px 12px;
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            color: var(--text-primary);
+            font-size: 13px;
+        }
+
+        .form-group input:focus,
+        .form-group select:focus,
+        .form-group textarea:focus {
+            outline: none;
+            border-color: var(--accent-blue);
+        }
+
+        .form-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+        }
+
+        .form-row-3 {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 12px;
+        }
+
+        /* Toggle Switch */
+        .toggle-container {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin: 16px 0;
+        }
+
+        .toggle-switch {
+            position: relative;
+            width: 44px;
+            height: 24px;
+            background: var(--bg-tertiary);
+            border-radius: 12px;
+            cursor: pointer;
+            border: 1px solid var(--border-color);
+            transition: all 0.2s;
+        }
+
+        .toggle-switch.active {
+            background: var(--accent-blue);
+            border-color: var(--accent-blue);
+        }
+
+        .toggle-switch::after {
+            content: '';
+            position: absolute;
+            top: 2px;
+            left: 2px;
+            width: 18px;
+            height: 18px;
+            background: var(--text-primary);
+            border-radius: 50%;
+            transition: all 0.2s;
+        }
+
+        .toggle-switch.active::after {
+            left: 22px;
+        }
+
+        .toggle-label {
+            color: var(--text-secondary);
+            font-size: 12px;
+        }
+
+        /* Monthly Grid */
+        .monthly-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 10px;
+            margin-top: 12px;
+        }
+
+        .month-input-group {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+
+        .month-input-group label {
+            font-size: 10px;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .month-input-group input {
+            padding: 8px 6px;
+            font-size: 12px;
+            text-align: right;
+            font-family: "SF Mono", Monaco, monospace;
+            width: 100%;
+        }
+
+        /* Entities Table */
+        .entities-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        .entities-table th,
+        .entities-table td {
+            padding: 10px 12px;
+            text-align: left;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .entities-table th {
+            background: var(--bg-tertiary);
+            color: var(--text-secondary);
+            font-weight: 600;
+            font-size: 11px;
+            text-transform: uppercase;
+        }
+
+        .entities-table tbody tr:hover {
+            background: var(--bg-hover);
+        }
+
+        .entity-type-badge {
+            display: inline-block;
+            padding: 3px 8px;
+            border-radius: 4px;
+            font-size: 11px;
+            font-weight: 500;
+        }
+
+        .entity-type-account {
+            background: rgba(29, 155, 240, 0.2);
+            color: var(--accent-blue);
+        }
+
+        .entity-type-card {
+            background: rgba(120, 86, 255, 0.2);
+            color: var(--accent-purple);
+        }
+
+        .entity-type-creditor {
+            background: rgba(244, 33, 46, 0.2);
+            color: var(--accent-red);
+        }
+
+        .entity-type-income-source {
+            background: rgba(0, 186, 124, 0.2);
+            color: var(--accent-green);
+        }
+
+        /* Charts Section */
+        .charts-grid {
+            display: grid;
+            grid-template-columns: 2fr 1fr;
+            gap: 20px;
+            margin-bottom: 24px;
+        }
+
+        .chart-card {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 20px;
+        }
+
+        .chart-card h3 {
+            font-size: 14px;
+            font-weight: 600;
+            margin-bottom: 16px;
+            color: var(--text-secondary);
+        }
+
+        .chart-container {
+            position: relative;
+            height: 300px;
+        }
+
+        /* Stats Cards */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 16px;
+            margin-bottom: 24px;
+        }
+
+        .stat-card {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 16px;
+        }
+
+        .stat-card .stat-label {
+            font-size: 11px;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 4px;
+        }
+
+        .stat-card .stat-value {
+            font-size: 24px;
+            font-weight: 700;
+            font-family: "SF Mono", Monaco, monospace;
+        }
+
+        .stat-card .stat-sub {
+            font-size: 11px;
+            color: var(--text-secondary);
+            margin-top: 4px;
+        }
+
+        .stat-positive {
+            color: var(--accent-green);
+        }
+
+        .stat-negative {
+            color: var(--accent-red);
+        }
+
+        /* Section Headers */
+        .section-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 16px;
+        }
+
+        .section-header h2 {
+            font-size: 16px;
+            font-weight: 600;
+        }
+
+        /* Empty State */
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            color: var(--text-secondary);
+        }
+
+        .empty-state svg {
+            width: 48px;
+            height: 48px;
+            margin-bottom: 16px;
+            opacity: 0.5;
+        }
+
+        .empty-state h3 {
+            font-size: 16px;
+            margin-bottom: 8px;
+            color: var(--text-primary);
+        }
+
+        /* Loading State */
+        .loading {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 40px;
+            color: var(--text-secondary);
+        }
+
+        .spinner {
+            width: 24px;
+            height: 24px;
+            border: 2px solid var(--border-color);
+            border-top-color: var(--accent-blue);
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+            margin-right: 10px;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        /* Toast Notifications */
+        .toast-container {
+            position: fixed;
+            bottom: 24px;
+            right: 24px;
+            z-index: 2000;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .toast {
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 12px 16px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            animation: slideIn 0.3s ease;
+            min-width: 280px;
+        }
+
+        @keyframes slideIn {
+            from {
+                transform: translateX(100%);
+                opacity: 0;
+            }
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+
+        .toast.success {
+            border-left: 3px solid var(--accent-green);
+        }
+
+        .toast.error {
+            border-left: 3px solid var(--accent-red);
+        }
+
+        .toast.warning {
+            border-left: 3px solid var(--accent-yellow);
+        }
+
+        /* Archival Banner */
+        .archive-banner {
+            background: rgba(255, 212, 0, 0.1);
+            border: 1px solid rgba(255, 212, 0, 0.3);
+            border-radius: 8px;
+            padding: 12px 16px;
+            margin-bottom: 16px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .archive-banner .banner-icon {
+            color: var(--accent-yellow);
+        }
+
+        .archive-banner .banner-text {
+            flex: 1;
+            font-size: 13px;
+        }
+
+        .archive-banner .banner-text strong {
+            color: var(--accent-yellow);
+        }
+
+        /* Confirmation Dialog */
+        .confirm-dialog {
+            text-align: center;
+            padding: 20px;
+        }
+
+        .confirm-dialog h3 {
+            margin-bottom: 12px;
+        }
+
+        .confirm-dialog p {
+            color: var(--text-secondary);
+            margin-bottom: 24px;
+        }
+
+        .confirm-dialog .btn-group {
+            display: flex;
+            justify-content: center;
+            gap: 12px;
+        }
+    </style>
+</head>
+<body>
+    <!-- Login Overlay -->
+    <div class="login-overlay" id="loginOverlay">
+        <div class="login-box">
+            <h1>🏠 Picu Budget</h1>
+            <p>Family Budget Management System</p>
+            <input type="text" id="loginUsername" placeholder="Username" autocomplete="off">
+            <input type="password" id="loginPassword" placeholder="Password">
+            <button onclick="handleLogin()">Sign In</button>
+        </div>
+    </div>
+
+    <!-- Main Application -->
+    <div class="app-container" id="appContainer">
+        <!-- Top Navigation -->
+        <nav class="top-nav">
+            <div class="nav-brand">🏠 Picu Budget</div>
+            <div class="nav-tabs">
+                <button class="nav-tab active" data-view="budget">📊 Budget Sheet</button>
+                <button class="nav-tab" data-view="statistics">📈 Statistics</button>
+                <button class="nav-tab" data-view="settings">⚙️ Settings</button>
+            </div>
+            <div class="nav-actions">
+                <button class="btn btn-secondary" id="themeToggle" onclick="toggleTheme()" title="Toggle Theme">
+                    <span id="themeIcon">☀️</span>
+                </button>
+                <div class="year-selector">
+                    <span>📅</span>
+                    <select id="yearSelector"></select>
+                </div>
+                <button class="btn btn-warning" onclick="showRolloverModal()">🔄 Rollover Year</button>
+            </div>
+        </nav>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <!-- Budget Sheet View -->
+            <section class="view-section active" id="budgetView">
+                <div class="toolbar">
+                    <div class="toolbar-left">
+                        <div class="filter-group">
+                            <label>Owner:</label>
+                            <select id="filterOwner">
+                                <option value="">All Owners</option>
+                                <option value="Seb">Seb</option>
+                                <option value="Gea">Gea</option>
+                                <option value="Shared">Shared</option>
+                            </select>
+                        </div>
+                        <div class="filter-group">
+                            <label>Type:</label>
+                            <select id="filterType">
+                                <option value="">All Types</option>
+                                <option value="Income">Income</option>
+                                <option value="Expense">Expense</option>
+                                <option value="Transfer">Transfer</option>
+                            </select>
+                        </div>
+                        <div class="filter-group">
+                            <label>From:</label>
+                            <select id="filterSource"></select>
+                        </div>
+                        <div class="filter-group">
+                            <label>To:</label>
+                            <select id="filterDestination"></select>
+                        </div>
+                        <div class="filter-group">
+                            <label>Status:</label>
+                            <select id="filterStatus">
+                                <option value="">All Status</option>
+                                <option value="Confirmed">Confirmed</option>
+                                <option value="Needs Update">Needs Update</option>
+                            </select>
+                        </div>
+                        <div class="filter-group">
+                            <label>Tx ID:</label>
+                            <input type="text" id="filterTxId" placeholder="Search..." 
+                                   style="width: 100px; padding: 6px 10px; background: var(--bg-tertiary); border: 1px solid var(--border-color); border-radius: 4px; color: var(--text-primary); font-size: 12px;">
+                        </div>
+                    </div>
+                    <div class="toolbar-right">
+                        <button class="btn btn-secondary" onclick="exportToExcel()">📥 Export Excel</button>
+                        <button class="btn btn-primary" onclick="showTransactionModal()">+ Add Transaction</button>
+                    </div>
+                </div>
+
+                <div id="needsUpdateBanner" class="archive-banner" style="display: none;">
+                    <span class="banner-icon">⚠️</span>
+                    <div class="banner-text">
+                        <strong id="needsUpdateCount">0</strong> budget lines need to be reviewed and updated for this year.
+                    </div>
+                    <button class="btn btn-sm btn-warning" onclick="filterNeedsUpdate()">Show All</button>
+                </div>
+
+                <div class="budget-table-container">
+                    <div class="budget-table-scroll">
+                        <table class="budget-table" id="budgetTable">
+                            <thead>
+                                <tr>
+                                    <th style="width: 40px;"></th>
+                                    <th>Title</th>
+                                    <th>Tx ID</th>
+                                    <th>Owner</th>
+                                    <th>Type</th>
+                                    <th>From</th>
+                                    <th>To</th>
+                                    <th>Status</th>
+                                    <th class="month-col">Jan</th>
+                                    <th class="month-col">Feb</th>
+                                    <th class="month-col">Mar</th>
+                                    <th class="month-col">Apr</th>
+                                    <th class="month-col">May</th>
+                                    <th class="month-col">Jun</th>
+                                    <th class="month-col">Jul</th>
+                                    <th class="month-col">Aug</th>
+                                    <th class="month-col">Sep</th>
+                                    <th class="month-col">Oct</th>
+                                    <th class="month-col">Nov</th>
+                                    <th class="month-col">Dec</th>
+                                    <th class="month-col">Avg</th>
+                                </tr>
+                            </thead>
+                            <tbody id="budgetTableBody">
+                            </tbody>
+                            <tfoot id="budgetTableFoot">
+                            </tfoot>
+                        </table>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Statistics View -->
+            <section class="view-section" id="statisticsView">
+                <div class="stats-grid" id="statsCards">
+                </div>
+
+                <div class="charts-grid">
+                    <div class="chart-card">
+                        <h3>📊 Monthly Cashflow (Income vs Expenses)</h3>
+                        <div class="chart-container">
+                            <canvas id="cashflowChart"></canvas>
+                        </div>
+                    </div>
+                    <div class="chart-card">
+                        <h3>🔥 Burn Rate by Owner</h3>
+                        <div class="chart-container">
+                            <canvas id="burnRateChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="toolbar">
+                    <div class="toolbar-left">
+                        <h3>Expense Breakdown</h3>
+                    </div>
+                    <div class="toolbar-right">
+                        <button class="btn btn-secondary" onclick="exportToExcel()">📥 Export Excel</button>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Settings View -->
+            <section class="view-section" id="settingsView">
+                <div class="section-header">
+                    <h2>⚙️ Infrastructure Manager</h2>
+                    <button class="btn btn-primary" onclick="showEntityModal()">+ Add Entity</button>
+                </div>
+
+                <div class="budget-table-container">
+                    <table class="entities-table" id="entitiesTable">
+                        <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>Name</th>
+                                <th>Description</th>
+                                <th>Type</th>
+                                <th>Owner</th>
+                                <th style="width: 100px;">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="entitiesTableBody">
+                        </tbody>
+                    </table>
+                </div>
+
+                <div class="section-header" style="margin-top: 32px;">
+                    <h2>📅 Year Management</h2>
+                    <button class="btn btn-primary" onclick="showAddYearModal()">+ Add Year</button>
+                </div>
+
+                <div class="budget-table-container">
+                    <table class="entities-table" id="yearsTable">
+                        <thead>
+                            <tr>
+                                <th>Year</th>
+                                <th>Status</th>
+                                <th>Budget Lines</th>
+                                <th style="width: 100px;">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="yearsTableBody">
+                        </tbody>
+                    </table>
+                </div>
+
+                <div class="section-header" style="margin-top: 32px;">
+                    <h2>🔍 Transaction ID Registry</h2>
+                    <div style="display: flex; gap: 8px; align-items: center;">
+                        <input type="text" id="txIdSearch" placeholder="Search by ID or title..." 
+                               style="padding: 8px 12px; background: var(--bg-tertiary); border: 1px solid var(--border-color); border-radius: 6px; color: var(--text-primary); width: 250px;"
+                               oninput="renderTransactionRegistry()">
+                    </div>
+                </div>
+
+                <p style="color: var(--text-secondary); margin-bottom: 16px; font-size: 13px;">
+                    Quick lookup for bank agreement IDs. Click a row to edit the transaction.
+                </p>
+
+                <div class="budget-table-container">
+                    <table class="entities-table" id="txRegistryTable">
+                        <thead>
+                            <tr>
+                                <th>Transaction ID</th>
+                                <th>Title</th>
+                                <th>Type</th>
+                                <th>Owner</th>
+                                <th>Destination (Creditor)</th>
+                                <th>Avg/Month</th>
+                                <th>Year</th>
+                            </tr>
+                        </thead>
+                        <tbody id="txRegistryTableBody">
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <!-- Transaction Modal -->
+    <div class="modal-overlay" id="transactionModal">
+        <div class="modal">
+            <div class="modal-header">
+                <h2 id="transactionModalTitle">Add Transaction</h2>
+                <button class="modal-close" onclick="closeTransactionModal()">×</button>
+            </div>
+            <div class="modal-body">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Title *</label>
+                        <input type="text" id="txTitle" placeholder="e.g., Honda FK2 - Insurance">
+                    </div>
+                    <div class="form-group">
+                        <label>Owner *</label>
+                        <select id="txOwner">
+                            <option value="Seb">Seb</option>
+                            <option value="Gea">Gea</option>
+                            <option value="Shared">Shared</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Transaction ID <span style="color: var(--text-muted); font-weight: normal;">(optional - bank agreement ID)</span></label>
+                        <input type="text" id="txTransactionId" placeholder="e.g., 12345678">
+                    </div>
+                    <div class="form-group">
+                        <label>Status</label>
+                        <select id="txStatus">
+                            <option value="Confirmed">Confirmed</option>
+                            <option value="Needs Update">Needs Update</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="form-row-3">
+                    <div class="form-group">
+                        <label>Type *</label>
+                        <select id="txType" onchange="updateTraceabilityDropdowns()">
+                            <option value="Income">Income</option>
+                            <option value="Expense">Expense</option>
+                            <option value="Transfer">Transfer</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>From (Source) *</label>
+                        <select id="txSource"></select>
+                    </div>
+                    <div class="form-group">
+                        <label>To (Destination) *</label>
+                        <select id="txDestination"></select>
+                    </div>
+                </div>
+
+                <hr style="border: none; border-top: 1px solid var(--border-color); margin: 20px 0;">
+
+                <h4 style="margin-bottom: 12px; font-size: 13px; color: var(--text-secondary);">💰 Monthly Values</h4>
+
+                <div class="toggle-container">
+                    <div class="toggle-switch" id="advancedModeToggle" onclick="toggleAdvancedMode()"></div>
+                    <span class="toggle-label">Advanced Mode (custom amounts per month)</span>
+                </div>
+
+                <div id="standardModeInputs">
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Amount</label>
+                            <input type="number" id="txAmount" placeholder="0.00" step="0.01" onchange="calculateMonthlyValues()">
+                        </div>
+                        <div class="form-group">
+                            <label>Frequency</label>
+                            <select id="txFrequency" onchange="calculateMonthlyValues()">
+                                <option value="monthly">Monthly (×12)</option>
+                                <option value="quarterly">Quarterly (×4)</option>
+                                <option value="biannual">Bi-Annual (×2)</option>
+                                <option value="annual">Annual (×1)</option>
+                                <option value="custom">Custom Months</option>
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <div class="form-group" id="applyFromGroup" style="display: none;">
+                        <label>Apply changes from month <span style="color: var(--text-muted); font-weight: normal;">(keeps earlier months unchanged)</span></label>
+                        <select id="txApplyFrom" onchange="calculateMonthlyValues()">
+                            <option value="">All months (start fresh)</option>
+                            <option value="jan">January onwards</option>
+                            <option value="feb">February onwards</option>
+                            <option value="mar">March onwards</option>
+                            <option value="apr">April onwards</option>
+                            <option value="may">May onwards</option>
+                            <option value="jun">June onwards</option>
+                            <option value="jul">July onwards</option>
+                            <option value="aug">August onwards</option>
+                            <option value="sep">September onwards</option>
+                            <option value="oct">October onwards</option>
+                            <option value="nov">November onwards</option>
+                            <option value="dec">December onwards</option>
+                        </select>
+                    </div>
+                    
+                    <div class="form-group" id="customMonthsGroup" style="display: none;">
+                        <label>Select Months</label>
+                        <div style="display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px;">
+                            <label style="display: flex; align-items: center; gap: 4px; cursor: pointer;">
+                                <input type="checkbox" class="custom-month" value="jan" onchange="calculateMonthlyValues()"> Jan
+                            </label>
+                            <label style="display: flex; align-items: center; gap: 4px; cursor: pointer;">
+                                <input type="checkbox" class="custom-month" value="feb" onchange="calculateMonthlyValues()"> Feb
+                            </label>
+                            <label style="display: flex; align-items: center; gap: 4px; cursor: pointer;">
+                                <input type="checkbox" class="custom-month" value="mar" onchange="calculateMonthlyValues()"> Mar
+                            </label>
+                            <label style="display: flex; align-items: center; gap: 4px; cursor: pointer;">
+                                <input type="checkbox" class="custom-month" value="apr" onchange="calculateMonthlyValues()"> Apr
+                            </label>
+                            <label style="display: flex; align-items: center; gap: 4px; cursor: pointer;">
+                                <input type="checkbox" class="custom-month" value="may" onchange="calculateMonthlyValues()"> May
+                            </label>
+                            <label style="display: flex; align-items: center; gap: 4px; cursor: pointer;">
+                                <input type="checkbox" class="custom-month" value="jun" onchange="calculateMonthlyValues()"> Jun
+                            </label>
+                            <label style="display: flex; align-items: center; gap: 4px; cursor: pointer;">
+                                <input type="checkbox" class="custom-month" value="jul" onchange="calculateMonthlyValues()"> Jul
+                            </label>
+                            <label style="display: flex; align-items: center; gap: 4px; cursor: pointer;">
+                                <input type="checkbox" class="custom-month" value="aug" onchange="calculateMonthlyValues()"> Aug
+                            </label>
+                            <label style="display: flex; align-items: center; gap: 4px; cursor: pointer;">
+                                <input type="checkbox" class="custom-month" value="sep" onchange="calculateMonthlyValues()"> Sep
+                            </label>
+                            <label style="display: flex; align-items: center; gap: 4px; cursor: pointer;">
+                                <input type="checkbox" class="custom-month" value="oct" onchange="calculateMonthlyValues()"> Oct
+                            </label>
+                            <label style="display: flex; align-items: center; gap: 4px; cursor: pointer;">
+                                <input type="checkbox" class="custom-month" value="nov" onchange="calculateMonthlyValues()"> Nov
+                            </label>
+                            <label style="display: flex; align-items: center; gap: 4px; cursor: pointer;">
+                                <input type="checkbox" class="custom-month" value="dec" onchange="calculateMonthlyValues()"> Dec
+                            </label>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="advancedModeInputs" style="display: none;">
+                    <div class="monthly-grid">
+                        <div class="month-input-group">
+                            <label>Jan</label>
+                            <input type="number" id="txJan" value="0" step="0.01">
+                        </div>
+                        <div class="month-input-group">
+                            <label>Feb</label>
+                            <input type="number" id="txFeb" value="0" step="0.01">
+                        </div>
+                        <div class="month-input-group">
+                            <label>Mar</label>
+                            <input type="number" id="txMar" value="0" step="0.01">
+                        </div>
+                        <div class="month-input-group">
+                            <label>Apr</label>
+                            <input type="number" id="txApr" value="0" step="0.01">
+                        </div>
+                        <div class="month-input-group">
+                            <label>May</label>
+                            <input type="number" id="txMay" value="0" step="0.01">
+                        </div>
+                        <div class="month-input-group">
+                            <label>Jun</label>
+                            <input type="number" id="txJun" value="0" step="0.01">
+                        </div>
+                        <div class="month-input-group">
+                            <label>Jul</label>
+                            <input type="number" id="txJul" value="0" step="0.01">
+                        </div>
+                        <div class="month-input-group">
+                            <label>Aug</label>
+                            <input type="number" id="txAug" value="0" step="0.01">
+                        </div>
+                        <div class="month-input-group">
+                            <label>Sep</label>
+                            <input type="number" id="txSep" value="0" step="0.01">
+                        </div>
+                        <div class="month-input-group">
+                            <label>Oct</label>
+                            <input type="number" id="txOct" value="0" step="0.01">
+                        </div>
+                        <div class="month-input-group">
+                            <label>Nov</label>
+                            <input type="number" id="txNov" value="0" step="0.01">
+                        </div>
+                        <div class="month-input-group">
+                            <label>Dec</label>
+                            <input type="number" id="txDec" value="0" step="0.01">
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="closeTransactionModal()">Cancel</button>
+                <button class="btn btn-primary" onclick="saveTransaction()">Save Transaction</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Entity Modal -->
+    <div class="modal-overlay" id="entityModal">
+        <div class="modal" style="width: 450px;">
+            <div class="modal-header">
+                <h2 id="entityModalTitle">Add Entity</h2>
+                <button class="modal-close" onclick="closeEntityModal()">×</button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label>Name *</label>
+                    <input type="text" id="entityName" placeholder="e.g., Shared Visa Card">
+                </div>
+                <div class="form-group">
+                    <label>Description</label>
+                    <input type="text" id="entityDescription" placeholder="e.g., Main household credit card">
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Type *</label>
+                        <select id="entityType" onchange="updateEntityOwnerOptions()">
+                            <option value="Account">Account</option>
+                            <option value="Card">Card</option>
+                            <option value="Creditor">Creditor (Expense destination)</option>
+                            <option value="Income Source">Income Source (Income origin)</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Owner *</label>
+                        <select id="entityOwner">
+                            <option value="Seb">Seb</option>
+                            <option value="Gea">Gea</option>
+                            <option value="Shared">Shared</option>
+                            <option value="All" class="owner-all-option" style="display: none;">All (Any Owner)</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="closeEntityModal()">Cancel</button>
+                <button class="btn btn-primary" onclick="saveEntity()">Save Entity</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Add Year Modal -->
+    <div class="modal-overlay" id="addYearModal">
+        <div class="modal" style="width: 400px;">
+            <div class="modal-header">
+                <h2>Add New Year</h2>
+                <button class="modal-close" onclick="closeAddYearModal()">×</button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label>Year *</label>
+                    <input type="number" id="newYearInput" placeholder="e.g., 2026" min="2020" max="2099">
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="closeAddYearModal()">Cancel</button>
+                <button class="btn btn-primary" onclick="addNewYear()">Add Year</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Rollover Modal -->
+    <div class="modal-overlay" id="rolloverModal">
+        <div class="modal" style="width: 450px;">
+            <div class="modal-header">
+                <h2>🔄 Rollover to New Year</h2>
+                <button class="modal-close" onclick="closeRolloverModal()">×</button>
+            </div>
+            <div class="modal-body">
+                <div class="confirm-dialog">
+                    <h3>Create budget for <span id="rolloverTargetYear"></span>?</h3>
+                    <p>This will duplicate all budget lines from <span id="rolloverSourceYear"></span> to the new year. All new lines will be marked as "Needs Update" so you can review and adjust amounts.</p>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="closeRolloverModal()">Cancel</button>
+                <button class="btn btn-warning" onclick="executeRollover()">🔄 Rollover Budget</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Delete Confirmation Modal -->
+    <div class="modal-overlay" id="deleteConfirmModal">
+        <div class="modal" style="width: 400px;">
+            <div class="modal-header">
+                <h2>⚠️ Confirm Delete</h2>
+                <button class="modal-close" onclick="closeDeleteConfirmModal()">×</button>
+            </div>
+            <div class="modal-body">
+                <div class="confirm-dialog">
+                    <p id="deleteConfirmMessage">Are you sure you want to delete this item?</p>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="closeDeleteConfirmModal()">Cancel</button>
+                <button class="btn btn-danger" id="deleteConfirmBtn">Delete</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast Container -->
+    <div class="toast-container" id="toastContainer"></div>
+
+    <script>
+        // =====================================================
+        // THEME TOGGLE
+        // =====================================================
+        function toggleTheme() {
+            const html = document.documentElement;
+            const currentTheme = html.getAttribute('data-theme');
+            const newTheme = currentTheme === 'light' ? 'dark' : 'light';
+            html.setAttribute('data-theme', newTheme);
+            document.getElementById('themeIcon').textContent = newTheme === 'light' ? '🌙' : '☀️';
+            localStorage.setItem('picu-theme', newTheme);
+        }
+
+        // Load saved theme on startup (default to light)
+        (function() {
+            const savedTheme = localStorage.getItem('picu-theme') || 'light';
+            document.documentElement.setAttribute('data-theme', savedTheme);
+            // Update icon after DOM loads
+            document.addEventListener('DOMContentLoaded', () => {
+                document.getElementById('themeIcon').textContent = savedTheme === 'light' ? '🌙' : '☀️';
+            });
+        })();
+
+        // =====================================================
+        // FIREBASE INITIALIZATION
+        // =====================================================
+        const firebaseConfig = {
+            apiKey: "AIzaSyAy0pn756AUfx1qVJgLgEXv7u6bUGivW_I",
+            authDomain: "picubudget.firebaseapp.com",
+            projectId: "picubudget",
+            storageBucket: "picubudget.firebasestorage.app",
+            messagingSenderId: "788796498138",
+            appId: "1:788796498138:web:71e79a4c51254227e8c5e3"
+        };
+
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.firestore();
+
+        // =====================================================
+        // GLOBAL STATE
+        // =====================================================
+        let currentYear = new Date().getFullYear().toString();
+        let entities = [];
+        let budgetLines = [];
+        let years = [];
+        let editingTransactionId = null;
+        let editingEntityId = null;
+        let advancedMode = false;
+        let cashflowChart = null;
+        let burnRateChart = null;
+
+        const MONTHS = ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec'];
+        const MONTH_LABELS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+        // =====================================================
+        // LOGIN HANDLER
+        // =====================================================
+        function handleLogin() {
+            const username = document.getElementById('loginUsername').value;
+            const password = document.getElementById('loginPassword').value;
+
+            if (username === 'admin' && password === 'albert1234') {
+                document.getElementById('loginOverlay').style.display = 'none';
+                document.getElementById('appContainer').classList.add('visible');
+                initializeApp();
+            } else {
+                showToast('Invalid username or password', 'error');
+            }
+        }
+
+        // Allow Enter key to submit login
+        document.getElementById('loginPassword').addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') handleLogin();
+        });
+
+        // =====================================================
+        // APP INITIALIZATION
+        // =====================================================
+        async function initializeApp() {
+            showToast('Loading data...', 'info');
+            
+            // Setup navigation
+            setupNavigation();
+            
+            // Load data
+            await loadYears();
+            await loadEntities();
+            await loadBudgetLines();
+            
+            // Setup filters
+            populateFilterDropdowns();
+            setupFilterListeners();
+            
+            showToast('Data loaded successfully!', 'success');
+        }
+
+        function setupNavigation() {
+            document.querySelectorAll('.nav-tab').forEach(tab => {
+                tab.addEventListener('click', () => {
+                    document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
+                    tab.classList.add('active');
+                    
+                    document.querySelectorAll('.view-section').forEach(v => v.classList.remove('active'));
+                    document.getElementById(tab.dataset.view + 'View').classList.add('active');
+                    
+                    if (tab.dataset.view === 'statistics') {
+                        renderCharts();
+                    }
+                });
+            });
+        }
+
+        // =====================================================
+        // DATA LOADING FUNCTIONS
+        // =====================================================
+        async function loadYears() {
+            try {
+                const snapshot = await db.collection('years').get();
+                years = [];
+                snapshot.forEach(doc => {
+                    years.push({ id: doc.id, ...doc.data() });
+                });
+
+                // If no years exist, create current year
+                if (years.length === 0) {
+                    await db.collection('years').doc(currentYear).set({ isArchived: false });
+                    years.push({ id: currentYear, isArchived: false });
+                }
+
+                // Sort years descending
+                years.sort((a, b) => parseInt(b.id) - parseInt(a.id));
+
+                // Populate year selector
+                const yearSelector = document.getElementById('yearSelector');
+                yearSelector.innerHTML = years.map(y => 
+                    `<option value="${y.id}" ${y.id === currentYear ? 'selected' : ''}>${y.id}</option>`
+                ).join('');
+
+                yearSelector.addEventListener('change', (e) => {
+                    currentYear = e.target.value;
+                    loadBudgetLines();
+                });
+
+                renderYearsTable();
+            } catch (error) {
+                console.error('Error loading years:', error);
+                showToast('Error loading years', 'error');
+            }
+        }
+
+        async function loadEntities() {
+            try {
+                const snapshot = await db.collection('entities').get();
+                entities = [];
+                snapshot.forEach(doc => {
+                    entities.push({ id: doc.id, ...doc.data() });
+                });
+
+                // If no entities exist, create default ones
+                if (entities.length === 0) {
+                    await createDefaultEntities();
+                    await loadEntities();
+                    return;
+                }
+
+                renderEntitiesTable();
+                populateFilterDropdowns();
+            } catch (error) {
+                console.error('Error loading entities:', error);
+                showToast('Error loading entities', 'error');
+            }
+        }
+
+        async function createDefaultEntities() {
+            const defaultEntities = [
+                // Accounts
+                { name: 'Seb Budget Account', description: 'Sebastian primary budget account', type: 'Account', owner: 'Seb' },
+                { name: 'Gea Budget Account', description: 'Gea primary budget account', type: 'Account', owner: 'Gea' },
+                { name: 'Shared Budget Account', description: 'Shared household budget account', type: 'Account', owner: 'Shared' },
+                { name: 'Albert Necessities Account', description: 'Account for Albert related expenses', type: 'Account', owner: 'Shared' },
+                // Cards
+                { name: 'Seb Debit Card', description: 'Sebastian debit card', type: 'Card', owner: 'Seb' },
+                { name: 'Gea Debit Card', description: 'Gea debit card', type: 'Card', owner: 'Gea' },
+                { name: 'Shared Credit Card', description: 'Shared household credit card', type: 'Card', owner: 'Shared' },
+                // Income Sources
+                { name: 'Seb Employer', description: 'Sebastian salary income source', type: 'Income Source', owner: 'Seb' },
+                { name: 'Gea Employer', description: 'Gea salary income source', type: 'Income Source', owner: 'Gea' },
+                { name: 'Child Support', description: 'Government child support payments', type: 'Income Source', owner: 'Shared' },
+            ];
+
+            for (const entity of defaultEntities) {
+                await db.collection('entities').add(entity);
+            }
+
+            showToast('Default entities created', 'success');
+        }
+
+        async function loadBudgetLines() {
+            try {
+                const snapshot = await db.collection('budgetLines')
+                    .where('year', '==', currentYear)
+                    .get();
+                
+                budgetLines = [];
+                snapshot.forEach(doc => {
+                    budgetLines.push({ id: doc.id, ...doc.data() });
+                });
+
+                renderBudgetTable();
+                updateNeedsUpdateBanner();
+                renderTransactionRegistry();
+            } catch (error) {
+                console.error('Error loading budget lines:', error);
+                showToast('Error loading budget lines', 'error');
+            }
+        }
+
+        // =====================================================
+        // ENTITY FUNCTIONS (CRUD)
+        // =====================================================
+        function getEntityName(entityId) {
+            const entity = entities.find(e => e.id === entityId);
+            return entity ? entity.name : entityId || '—';
+        }
+
+        function getEntityById(entityId) {
+            return entities.find(e => e.id === entityId);
+        }
+
+        function showEntityModal(entityId = null) {
+            editingEntityId = entityId;
+            const modal = document.getElementById('entityModal');
+            const title = document.getElementById('entityModalTitle');
+            
+            if (entityId) {
+                title.textContent = 'Edit Entity';
+                const entity = entities.find(e => e.id === entityId);
+                if (entity) {
+                    document.getElementById('entityName').value = entity.name;
+                    document.getElementById('entityDescription').value = entity.description || '';
+                    document.getElementById('entityType').value = entity.type;
+                    updateEntityOwnerOptions(); // Update options before setting value
+                    document.getElementById('entityOwner').value = entity.owner;
+                }
+            } else {
+                title.textContent = 'Add Entity';
+                document.getElementById('entityName').value = '';
+                document.getElementById('entityDescription').value = '';
+                document.getElementById('entityType').value = 'Account';
+                document.getElementById('entityOwner').value = 'Shared';
+                updateEntityOwnerOptions();
+            }
+            
+            modal.classList.add('visible');
+        }
+
+        function closeEntityModal() {
+            document.getElementById('entityModal').classList.remove('visible');
+            editingEntityId = null;
+        }
+
+        async function saveEntity() {
+            const name = document.getElementById('entityName').value.trim();
+            const description = document.getElementById('entityDescription').value.trim();
+            const type = document.getElementById('entityType').value;
+            const owner = document.getElementById('entityOwner').value;
+
+            if (!name) {
+                showToast('Entity name is required', 'error');
+                return;
+            }
+
+            const entityData = { name, description, type, owner };
+
+            try {
+                if (editingEntityId) {
+                    await db.collection('entities').doc(editingEntityId).update(entityData);
+                    showToast('Entity updated successfully', 'success');
+                } else {
+                    await db.collection('entities').add(entityData);
+                    showToast('Entity created successfully', 'success');
+                }
+                
+                closeEntityModal();
+                await loadEntities();
+            } catch (error) {
+                console.error('Error saving entity:', error);
+                showToast('Error saving entity', 'error');
+            }
+        }
+
+        async function deleteEntity(entityId) {
+            const entity = entities.find(e => e.id === entityId);
+            showDeleteConfirmation(
+                `Are you sure you want to delete "${entity?.name}"? This may affect budget lines using this entity.`,
+                async () => {
+                    try {
+                        await db.collection('entities').doc(entityId).delete();
+                        showToast('Entity deleted successfully', 'success');
+                        await loadEntities();
+                    } catch (error) {
+                        console.error('Error deleting entity:', error);
+                        showToast('Error deleting entity', 'error');
+                    }
+                }
+            );
+        }
+
+        function renderEntitiesTable() {
+            const tbody = document.getElementById('entitiesTableBody');
+            
+            if (entities.length === 0) {
+                tbody.innerHTML = `
+                    <tr>
+                        <td colspan="6" class="empty-state">
+                            <h3>No entities yet</h3>
+                            <p>Add accounts, cards, or creditors to get started.</p>
+                        </td>
+                    </tr>
+                `;
+                return;
+            }
+
+            tbody.innerHTML = entities.map(entity => {
+                const typeClass = entity.type.toLowerCase().replace(' ', '-');
+                return `
+                <tr>
+                    <td><code style="font-size: 11px; color: var(--text-muted);">${entity.id.substring(0, 8)}...</code></td>
+                    <td><strong>${entity.name}</strong></td>
+                    <td style="color: var(--text-secondary);">${entity.description || '—'}</td>
+                    <td>
+                        <span class="entity-type-badge entity-type-${typeClass}">${entity.type}</span>
+                    </td>
+                    <td>${entity.owner === 'All' ? '<em style="color: var(--text-muted);">All Owners</em>' : entity.owner}</td>
+                    <td>
+                        <div class="row-actions">
+                            <button onclick="showEntityModal('${entity.id}')" title="Edit">✏️</button>
+                            <button onclick="deleteEntity('${entity.id}')" title="Delete">🗑️</button>
+                        </div>
+                    </td>
+                </tr>
+            `}).join('');
+        }
+
+        function updateEntityOwnerOptions() {
+            const entityType = document.getElementById('entityType').value;
+            const allOption = document.querySelector('#entityOwner option[value="All"]');
+            
+            if (entityType === 'Creditor' || entityType === 'Income Source') {
+                allOption.style.display = 'block';
+            } else {
+                allOption.style.display = 'none';
+                // If "All" was selected and type is changed away from Creditor/Income Source, reset to Shared
+                if (document.getElementById('entityOwner').value === 'All') {
+                    document.getElementById('entityOwner').value = 'Shared';
+                }
+            }
+        }
+
+        // =====================================================
+        // TRANSACTION (BUDGET LINE) FUNCTIONS
+        // =====================================================
+        function showTransactionModal(lineId = null) {
+            editingTransactionId = lineId;
+            const modal = document.getElementById('transactionModal');
+            const title = document.getElementById('transactionModalTitle');
+            
+            // Reset form
+            document.getElementById('txTitle').value = '';
+            document.getElementById('txOwner').value = 'Shared';
+            document.getElementById('txType').value = 'Expense';
+            document.getElementById('txStatus').value = 'Confirmed';
+            document.getElementById('txTransactionId').value = '';
+            document.getElementById('txAmount').value = '';
+            document.getElementById('txFrequency').value = 'monthly';
+            document.getElementById('txApplyFrom').value = '';
+            document.getElementById('customMonthsGroup').style.display = 'none';
+            document.querySelectorAll('.custom-month').forEach(cb => cb.checked = false);
+            
+            // Show/hide "apply from" based on edit mode
+            document.getElementById('applyFromGroup').style.display = lineId ? 'block' : 'none';
+            
+            // Reset advanced mode
+            advancedMode = false;
+            document.getElementById('advancedModeToggle').classList.remove('active');
+            document.getElementById('standardModeInputs').style.display = 'block';
+            document.getElementById('advancedModeInputs').style.display = 'none';
+            MONTHS.forEach(m => document.getElementById('tx' + m.charAt(0).toUpperCase() + m.slice(1)).value = 0);
+            
+            if (lineId) {
+                title.textContent = 'Edit Transaction';
+                const line = budgetLines.find(l => l.id === lineId);
+                if (line) {
+                    document.getElementById('txTitle').value = line.title;
+                    document.getElementById('txOwner').value = line.owner;
+                    document.getElementById('txType').value = line.type;
+                    document.getElementById('txStatus').value = line.status || 'Confirmed';
+                    document.getElementById('txTransactionId').value = line.transactionId || '';
+                    
+                    // Check if values vary (advanced mode)
+                    const values = MONTHS.map(m => line.monthlyValues?.[m] || 0);
+                    const allSame = values.every(v => v === values[0]);
+                    
+                    if (!allSame) {
+                        advancedMode = true;
+                        document.getElementById('advancedModeToggle').classList.add('active');
+                        document.getElementById('standardModeInputs').style.display = 'none';
+                        document.getElementById('advancedModeInputs').style.display = 'block';
+                    } else {
+                        document.getElementById('txAmount').value = values[0] || 0;
+                    }
+                    
+                    MONTHS.forEach(m => {
+                        document.getElementById('tx' + m.charAt(0).toUpperCase() + m.slice(1)).value = line.monthlyValues?.[m] || 0;
+                    });
+                }
+            } else {
+                title.textContent = 'Add Transaction';
+            }
+            
+            updateTraceabilityDropdowns();
+            
+            // Set source/destination if editing
+            if (lineId) {
+                const line = budgetLines.find(l => l.id === lineId);
+                if (line) {
+                    setTimeout(() => {
+                        document.getElementById('txSource').value = line.sourceId || '';
+                        document.getElementById('txDestination').value = line.destinationId || '';
+                    }, 50);
+                }
+            }
+            
+            modal.classList.add('visible');
+        }
+
+        function closeTransactionModal() {
+            document.getElementById('transactionModal').classList.remove('visible');
+            editingTransactionId = null;
+        }
+
+        function updateTraceabilityDropdowns() {
+            const type = document.getElementById('txType').value;
+            const sourceSelect = document.getElementById('txSource');
+            const destSelect = document.getElementById('txDestination');
+            
+            let sourceEntities = [];
+            let destEntities = [];
+            
+            if (type === 'Income') {
+                // Income: FROM Income Sources, TO Accounts/Cards
+                sourceEntities = entities.filter(e => e.type === 'Income Source');
+                destEntities = entities.filter(e => e.type === 'Account' || e.type === 'Card');
+            } else if (type === 'Expense') {
+                // Expense: FROM Accounts/Cards, TO Creditors
+                sourceEntities = entities.filter(e => e.type === 'Account' || e.type === 'Card');
+                destEntities = entities.filter(e => e.type === 'Creditor');
+            } else if (type === 'Transfer') {
+                // Transfer: FROM Accounts/Cards, TO Accounts/Cards
+                sourceEntities = entities.filter(e => e.type === 'Account' || e.type === 'Card');
+                destEntities = entities.filter(e => e.type === 'Account' || e.type === 'Card');
+            }
+            
+            sourceSelect.innerHTML = '<option value="">— Select Source —</option>' + 
+                sourceEntities.map(e => {
+                    const ownerLabel = e.owner === 'All' ? 'All Owners' : e.owner;
+                    const showOwner = e.type === 'Income Source' || e.type === 'Creditor';
+                    return `<option value="${e.id}">${e.name} (${e.type}${showOwner ? ' • ' + ownerLabel : ''})</option>`;
+                }).join('');
+            
+            destSelect.innerHTML = '<option value="">— Select Destination —</option>' + 
+                destEntities.map(e => {
+                    const ownerLabel = e.owner === 'All' ? 'All Owners' : e.owner;
+                    const showOwner = e.type === 'Creditor';
+                    return `<option value="${e.id}">${e.name} (${e.type}${showOwner ? ' • ' + ownerLabel : ''})</option>`;
+                }).join('');
+        }
+
+        function toggleAdvancedMode() {
+            advancedMode = !advancedMode;
+            document.getElementById('advancedModeToggle').classList.toggle('active', advancedMode);
+            document.getElementById('standardModeInputs').style.display = advancedMode ? 'none' : 'block';
+            document.getElementById('advancedModeInputs').style.display = advancedMode ? 'block' : 'none';
+            
+            if (!advancedMode) {
+                calculateMonthlyValues();
+            }
+        }
+
+        function calculateMonthlyValues() {
+            if (advancedMode) return;
+            
+            const amount = parseFloat(document.getElementById('txAmount').value) || 0;
+            const frequency = document.getElementById('txFrequency').value;
+            const applyFrom = document.getElementById('txApplyFrom').value;
+            
+            // Get current values from the advanced inputs (for preserving earlier months)
+            let values = {};
+            MONTHS.forEach(m => {
+                values[m] = parseFloat(document.getElementById('tx' + m.charAt(0).toUpperCase() + m.slice(1)).value) || 0;
+            });
+            
+            // Determine which months to update
+            let monthsToUpdate = [...MONTHS];
+            if (applyFrom) {
+                const fromIndex = MONTHS.indexOf(applyFrom);
+                monthsToUpdate = MONTHS.slice(fromIndex);
+            }
+            
+            // Calculate new values based on frequency
+            let newValues = {};
+            MONTHS.forEach(m => newValues[m] = 0);
+            
+            if (frequency === 'monthly') {
+                MONTHS.forEach(m => newValues[m] = amount);
+            } else if (frequency === 'quarterly') {
+                ['jan', 'apr', 'jul', 'oct'].forEach(m => newValues[m] = amount);
+            } else if (frequency === 'biannual') {
+                ['jan', 'jul'].forEach(m => newValues[m] = amount);
+            } else if (frequency === 'annual') {
+                newValues['jan'] = amount;
+            } else if (frequency === 'custom') {
+                document.getElementById('customMonthsGroup').style.display = 'block';
+                document.querySelectorAll('.custom-month:checked').forEach(cb => {
+                    newValues[cb.value] = amount;
+                });
+            }
+            
+            if (frequency !== 'custom') {
+                document.getElementById('customMonthsGroup').style.display = 'none';
+            }
+            
+            // Apply new values only to the months we're updating
+            MONTHS.forEach(m => {
+                if (monthsToUpdate.includes(m)) {
+                    values[m] = newValues[m];
+                }
+                // else keep the existing value
+            });
+            
+            // Update the input fields
+            MONTHS.forEach(m => {
+                document.getElementById('tx' + m.charAt(0).toUpperCase() + m.slice(1)).value = values[m];
+            });
+        }
+
+        async function saveTransaction() {
+            const title = document.getElementById('txTitle').value.trim();
+            const owner = document.getElementById('txOwner').value;
+            const type = document.getElementById('txType').value;
+            const sourceId = document.getElementById('txSource').value;
+            const destinationId = document.getElementById('txDestination').value;
+            const status = document.getElementById('txStatus').value;
+            const transactionId = document.getElementById('txTransactionId').value.trim();
+
+            if (!title) {
+                showToast('Title is required', 'error');
+                return;
+            }
+
+            const monthlyValues = {};
+            MONTHS.forEach(m => {
+                monthlyValues[m] = parseFloat(document.getElementById('tx' + m.charAt(0).toUpperCase() + m.slice(1)).value) || 0;
+            });
+
+            const lineData = {
+                title,
+                owner,
+                type,
+                sourceId,
+                destinationId,
+                status,
+                transactionId,
+                monthlyValues,
+                year: currentYear
+            };
+
+            try {
+                if (editingTransactionId) {
+                    await db.collection('budgetLines').doc(editingTransactionId).update(lineData);
+                    showToast('Transaction updated successfully', 'success');
+                } else {
+                    await db.collection('budgetLines').add(lineData);
+                    showToast('Transaction created successfully', 'success');
+                }
+                
+                closeTransactionModal();
+                await loadBudgetLines();
+                renderTransactionRegistry();
+            } catch (error) {
+                console.error('Error saving transaction:', error);
+                showToast('Error saving transaction', 'error');
+            }
+        }
+
+        async function deleteTransaction(lineId) {
+            const line = budgetLines.find(l => l.id === lineId);
+            showDeleteConfirmation(
+                `Are you sure you want to delete "${line?.title}"?`,
+                async () => {
+                    try {
+                        await db.collection('budgetLines').doc(lineId).delete();
+                        showToast('Transaction deleted successfully', 'success');
+                        await loadBudgetLines();
+                    } catch (error) {
+                        console.error('Error deleting transaction:', error);
+                        showToast('Error deleting transaction', 'error');
+                    }
+                }
+            );
+        }
+
+        // =====================================================
+        // BUDGET TABLE RENDERING
+        // =====================================================
+        function renderBudgetTable() {
+            const tbody = document.getElementById('budgetTableBody');
+            const tfoot = document.getElementById('budgetTableFoot');
+            
+            // Apply filters
+            let filteredLines = [...budgetLines];
+            
+            const filterOwner = document.getElementById('filterOwner').value;
+            const filterType = document.getElementById('filterType').value;
+            const filterSource = document.getElementById('filterSource').value;
+            const filterDest = document.getElementById('filterDestination').value;
+            const filterStatus = document.getElementById('filterStatus').value;
+            const filterTxId = document.getElementById('filterTxId').value.toLowerCase();
+            
+            if (filterOwner) filteredLines = filteredLines.filter(l => l.owner === filterOwner);
+            if (filterType) filteredLines = filteredLines.filter(l => l.type === filterType);
+            if (filterSource) filteredLines = filteredLines.filter(l => l.sourceId === filterSource);
+            if (filterDest) filteredLines = filteredLines.filter(l => l.destinationId === filterDest);
+            if (filterStatus) filteredLines = filteredLines.filter(l => l.status === filterStatus);
+            if (filterTxId) filteredLines = filteredLines.filter(l => 
+                (l.transactionId || '').toLowerCase().includes(filterTxId) || 
+                l.title.toLowerCase().includes(filterTxId)
+            );
+            
+            // Sort by type, then owner, then title
+            const typeOrder = { 'Income': 0, 'Expense': 1, 'Transfer': 2 };
+            filteredLines.sort((a, b) => {
+                if (typeOrder[a.type] !== typeOrder[b.type]) return typeOrder[a.type] - typeOrder[b.type];
+                if (a.owner !== b.owner) return a.owner.localeCompare(b.owner);
+                return a.title.localeCompare(b.title);
+            });
+            
+            if (filteredLines.length === 0) {
+                tbody.innerHTML = `
+                    <tr>
+                        <td colspan="21" class="empty-state">
+                            <h3>No budget lines found</h3>
+                            <p>Add your first transaction to get started.</p>
+                        </td>
+                    </tr>
+                `;
+                tfoot.innerHTML = '';
+                return;
+            }
+
+            tbody.innerHTML = filteredLines.map(line => {
+                const avg = MONTHS.reduce((sum, m) => sum + (line.monthlyValues?.[m] || 0), 0) / 12;
+                const ownerClass = `owner-${line.owner.toLowerCase()}`;
+                const needsUpdate = line.status === 'Needs Update' ? 'needs-update' : '';
+                
+                return `
+                    <tr class="${ownerClass} ${needsUpdate}">
+                        <td>
+                            <div class="row-actions">
+                                <button onclick="showTransactionModal('${line.id}')" title="Edit">✏️</button>
+                                <button onclick="deleteTransaction('${line.id}')" title="Delete">🗑️</button>
+                            </div>
+                        </td>
+                        <td><strong>${line.title}</strong></td>
+                        <td><code style="font-size: 10px; color: var(--text-muted);">${line.transactionId || '—'}</code></td>
+                        <td>${line.owner}</td>
+                        <td><span class="type-badge type-${line.type.toLowerCase()}">${line.type}</span></td>
+                        <td>${getEntityName(line.sourceId)}</td>
+                        <td>${getEntityName(line.destinationId)}</td>
+                        <td><span class="status-badge status-${line.status?.toLowerCase().replace(' ', '-') || 'confirmed'}">${line.status || 'Confirmed'}</span></td>
+                        ${MONTHS.map(m => `<td class="month-val">${formatNumber(line.monthlyValues?.[m] || 0)}</td>`).join('')}
+                        <td class="avg-val">${formatNumber(avg)}</td>
+                    </tr>
+                `;
+            }).join('');
+
+            // Calculate totals
+            const totals = { income: {}, expense: {}, net: {} };
+            MONTHS.forEach(m => {
+                totals.income[m] = 0;
+                totals.expense[m] = 0;
+            });
+
+            filteredLines.forEach(line => {
+                MONTHS.forEach(m => {
+                    const val = line.monthlyValues?.[m] || 0;
+                    if (line.type === 'Income') {
+                        totals.income[m] += val;
+                    } else if (line.type === 'Expense' || line.type === 'Transfer') {
+                        totals.expense[m] += val;
+                    }
+                });
+            });
+
+            MONTHS.forEach(m => {
+                totals.net[m] = totals.income[m] - totals.expense[m];
+            });
+
+            const avgIncome = MONTHS.reduce((sum, m) => sum + totals.income[m], 0) / 12;
+            const avgExpense = MONTHS.reduce((sum, m) => sum + totals.expense[m], 0) / 12;
+            const avgNet = avgIncome - avgExpense;
+
+            tfoot.innerHTML = `
+                <tr>
+                    <td colspan="8" style="text-align: right; font-weight: 600; color: var(--accent-green);">Total Income</td>
+                    ${MONTHS.map(m => `<td class="month-val" style="color: var(--accent-green);">${formatNumber(totals.income[m])}</td>`).join('')}
+                    <td class="avg-val" style="color: var(--accent-green);">${formatNumber(avgIncome)}</td>
+                </tr>
+                <tr>
+                    <td colspan="8" style="text-align: right; font-weight: 600; color: var(--accent-red);">Total Expenses</td>
+                    ${MONTHS.map(m => `<td class="month-val" style="color: var(--accent-red);">${formatNumber(totals.expense[m])}</td>`).join('')}
+                    <td class="avg-val" style="color: var(--accent-red);">${formatNumber(avgExpense)}</td>
+                </tr>
+                <tr>
+                    <td colspan="8" style="text-align: right; font-weight: 600;">Net Cashflow</td>
+                    ${MONTHS.map(m => `<td class="month-val ${totals.net[m] >= 0 ? 'summary-positive' : 'summary-negative'}">${formatNumber(totals.net[m])}</td>`).join('')}
+                    <td class="avg-val ${avgNet >= 0 ? 'summary-positive' : 'summary-negative'}">${formatNumber(avgNet)}</td>
+                </tr>
+            `;
+        }
+
+        function updateNeedsUpdateBanner() {
+            const needsUpdateCount = budgetLines.filter(l => l.status === 'Needs Update').length;
+            const banner = document.getElementById('needsUpdateBanner');
+            const countSpan = document.getElementById('needsUpdateCount');
+            
+            if (needsUpdateCount > 0) {
+                banner.style.display = 'flex';
+                countSpan.textContent = needsUpdateCount;
+            } else {
+                banner.style.display = 'none';
+            }
+        }
+
+        function filterNeedsUpdate() {
+            document.getElementById('filterStatus').value = 'Needs Update';
+            renderBudgetTable();
+        }
+
+        // =====================================================
+        // FILTER FUNCTIONS
+        // =====================================================
+        function populateFilterDropdowns() {
+            const sourceFilter = document.getElementById('filterSource');
+            const destFilter = document.getElementById('filterDestination');
+            
+            // Source can be Accounts, Cards, or Income Sources
+            const sourceEntities = entities.filter(e => e.type === 'Account' || e.type === 'Card' || e.type === 'Income Source');
+            // Destination can be Accounts, Cards, or Creditors
+            const destEntities = entities.filter(e => e.type === 'Account' || e.type === 'Card' || e.type === 'Creditor');
+            
+            sourceFilter.innerHTML = '<option value="">All Sources</option>' + 
+                sourceEntities.map(e => `<option value="${e.id}">${e.name} (${e.type})</option>`).join('');
+            
+            destFilter.innerHTML = '<option value="">All Destinations</option>' + 
+                destEntities.map(e => `<option value="${e.id}">${e.name} (${e.type})</option>`).join('');
+        }
+
+        function setupFilterListeners() {
+            ['filterOwner', 'filterType', 'filterSource', 'filterDestination', 'filterStatus'].forEach(id => {
+                document.getElementById(id).addEventListener('change', renderBudgetTable);
+            });
+            // Add input listener for transaction ID search
+            document.getElementById('filterTxId').addEventListener('input', renderBudgetTable);
+        }
+
+        // =====================================================
+        // YEAR MANAGEMENT
+        // =====================================================
+        function renderYearsTable() {
+            const tbody = document.getElementById('yearsTableBody');
+            
+            tbody.innerHTML = years.map(year => {
+                const lineCount = budgetLines.filter(l => l.year === year.id).length;
+                return `
+                    <tr>
+                        <td><strong>${year.id}</strong></td>
+                        <td>
+                            ${year.isArchived 
+                                ? '<span class="status-badge" style="background: var(--bg-tertiary);">Archived</span>' 
+                                : '<span class="status-badge status-confirmed">Active</span>'
+                            }
+                        </td>
+                        <td>${lineCount} lines</td>
+                        <td>
+                            <div class="row-actions">
+                                <button onclick="toggleArchiveYear('${year.id}')" title="${year.isArchived ? 'Unarchive' : 'Archive'}">
+                                    ${year.isArchived ? '📂' : '📁'}
+                                </button>
+                            </div>
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+        }
+
+        function renderTransactionRegistry() {
+            const tbody = document.getElementById('txRegistryTableBody');
+            const searchTerm = (document.getElementById('txIdSearch')?.value || '').toLowerCase();
+            
+            // Get all budget lines that have a transaction ID, or match search
+            let registryLines = budgetLines.filter(line => {
+                if (!searchTerm) {
+                    return line.transactionId; // Only show lines with transaction IDs when not searching
+                }
+                // When searching, search in both transaction ID and title
+                const matchesId = (line.transactionId || '').toLowerCase().includes(searchTerm);
+                const matchesTitle = line.title.toLowerCase().includes(searchTerm);
+                return matchesId || matchesTitle;
+            });
+            
+            // Sort by transaction ID
+            registryLines.sort((a, b) => (a.transactionId || '').localeCompare(b.transactionId || ''));
+            
+            if (registryLines.length === 0) {
+                tbody.innerHTML = `
+                    <tr>
+                        <td colspan="7" class="empty-state">
+                            <h3>${searchTerm ? 'No matches found' : 'No transaction IDs registered'}</h3>
+                            <p>${searchTerm ? 'Try a different search term.' : 'Add transaction IDs when creating or editing budget lines.'}</p>
+                        </td>
+                    </tr>
+                `;
+                return;
+            }
+
+            tbody.innerHTML = registryLines.map(line => {
+                const avg = MONTHS.reduce((sum, m) => sum + (line.monthlyValues?.[m] || 0), 0) / 12;
+                return `
+                    <tr style="cursor: pointer;" onclick="showTransactionModal('${line.id}')">
+                        <td><code style="font-family: 'SF Mono', Monaco, monospace; background: var(--bg-tertiary); padding: 2px 6px; border-radius: 4px;">${line.transactionId || '—'}</code></td>
+                        <td><strong>${line.title}</strong></td>
+                        <td><span class="type-badge type-${line.type.toLowerCase()}">${line.type}</span></td>
+                        <td>${line.owner}</td>
+                        <td>${getEntityName(line.destinationId)}</td>
+                        <td style="font-family: 'SF Mono', Monaco, monospace; text-align: right;">${formatNumber(avg)}</td>
+                        <td>${line.year}</td>
+                    </tr>
+                `;
+            }).join('');
+        }
+
+        function showAddYearModal() {
+            document.getElementById('newYearInput').value = '';
+            document.getElementById('addYearModal').classList.add('visible');
+        }
+
+        function closeAddYearModal() {
+            document.getElementById('addYearModal').classList.remove('visible');
+        }
+
+        async function addNewYear() {
+            const yearInput = document.getElementById('newYearInput').value.trim();
+            
+            if (!yearInput || isNaN(yearInput) || yearInput.length !== 4) {
+                showToast('Please enter a valid 4-digit year', 'error');
+                return;
+            }
+
+            if (years.find(y => y.id === yearInput)) {
+                showToast('This year already exists', 'error');
+                return;
+            }
+
+            try {
+                await db.collection('years').doc(yearInput).set({ isArchived: false });
+                showToast(`Year ${yearInput} added successfully`, 'success');
+                closeAddYearModal();
+                await loadYears();
+            } catch (error) {
+                console.error('Error adding year:', error);
+                showToast('Error adding year', 'error');
+            }
+        }
+
+        async function toggleArchiveYear(yearId) {
+            const year = years.find(y => y.id === yearId);
+            try {
+                await db.collection('years').doc(yearId).update({ isArchived: !year.isArchived });
+                showToast(`Year ${yearId} ${year.isArchived ? 'unarchived' : 'archived'}`, 'success');
+                await loadYears();
+            } catch (error) {
+                console.error('Error toggling archive:', error);
+                showToast('Error updating year', 'error');
+            }
+        }
+
+        // =====================================================
+        // YEARLY ROLLOVER
+        // =====================================================
+        function showRolloverModal() {
+            const nextYear = (parseInt(currentYear) + 1).toString();
+            document.getElementById('rolloverSourceYear').textContent = currentYear;
+            document.getElementById('rolloverTargetYear').textContent = nextYear;
+            document.getElementById('rolloverModal').classList.add('visible');
+        }
+
+        function closeRolloverModal() {
+            document.getElementById('rolloverModal').classList.remove('visible');
+        }
+
+        async function executeRollover() {
+            const nextYear = (parseInt(currentYear) + 1).toString();
+            
+            try {
+                // Check if target year exists
+                const yearDoc = await db.collection('years').doc(nextYear).get();
+                if (!yearDoc.exists) {
+                    await db.collection('years').doc(nextYear).set({ isArchived: false });
+                }
+
+                // Get all budget lines from current year
+                const snapshot = await db.collection('budgetLines')
+                    .where('year', '==', currentYear)
+                    .get();
+
+                // Duplicate each line
+                const batch = db.batch();
+                snapshot.forEach(doc => {
+                    const data = doc.data();
+                    const newLineRef = db.collection('budgetLines').doc();
+                    batch.set(newLineRef, {
+                        ...data,
+                        year: nextYear,
+                        status: 'Needs Update'
+                    });
+                });
+
+                await batch.commit();
+
+                showToast(`Successfully rolled over ${snapshot.size} budget lines to ${nextYear}`, 'success');
+                closeRolloverModal();
+                
+                // Switch to new year
+                currentYear = nextYear;
+                document.getElementById('yearSelector').value = nextYear;
+                
+                await loadYears();
+                await loadBudgetLines();
+            } catch (error) {
+                console.error('Error during rollover:', error);
+                showToast('Error during rollover', 'error');
+            }
+        }
+
+        // =====================================================
+        // STATISTICS & CHARTS
+        // =====================================================
+        function renderCharts() {
+            renderStatsCards();
+            renderCashflowChart();
+            renderBurnRateChart();
+        }
+
+        function renderStatsCards() {
+            const totalIncome = budgetLines
+                .filter(l => l.type === 'Income')
+                .reduce((sum, l) => sum + MONTHS.reduce((s, m) => s + (l.monthlyValues?.[m] || 0), 0), 0);
+            
+            const totalExpenses = budgetLines
+                .filter(l => l.type === 'Expense' || l.type === 'Transfer')
+                .reduce((sum, l) => sum + MONTHS.reduce((s, m) => s + (l.monthlyValues?.[m] || 0), 0), 0);
+            
+            const netSavings = totalIncome - totalExpenses;
+            const savingsRate = totalIncome > 0 ? (netSavings / totalIncome * 100) : 0;
+
+            document.getElementById('statsCards').innerHTML = `
+                <div class="stat-card">
+                    <div class="stat-label">Total Annual Income</div>
+                    <div class="stat-value stat-positive">${formatNumber(totalIncome)}</div>
+                    <div class="stat-sub">~${formatNumber(totalIncome / 12)}/month</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label">Total Annual Expenses</div>
+                    <div class="stat-value stat-negative">${formatNumber(totalExpenses)}</div>
+                    <div class="stat-sub">~${formatNumber(totalExpenses / 12)}/month</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label">Net Savings</div>
+                    <div class="stat-value ${netSavings >= 0 ? 'stat-positive' : 'stat-negative'}">${formatNumber(netSavings)}</div>
+                    <div class="stat-sub">~${formatNumber(netSavings / 12)}/month</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label">Savings Rate</div>
+                    <div class="stat-value ${savingsRate >= 0 ? 'stat-positive' : 'stat-negative'}">${savingsRate.toFixed(1)}%</div>
+                    <div class="stat-sub">of total income</div>
+                </div>
+            `;
+        }
+
+        function renderCashflowChart() {
+            const ctx = document.getElementById('cashflowChart').getContext('2d');
+            
+            // Calculate monthly totals
+            const incomeData = MONTHS.map(m => 
+                budgetLines.filter(l => l.type === 'Income')
+                    .reduce((sum, l) => sum + (l.monthlyValues?.[m] || 0), 0)
+            );
+            
+            const expenseData = MONTHS.map(m => 
+                budgetLines.filter(l => l.type === 'Expense' || l.type === 'Transfer')
+                    .reduce((sum, l) => sum + (l.monthlyValues?.[m] || 0), 0)
+            );
+
+            if (cashflowChart) {
+                cashflowChart.destroy();
+            }
+
+            cashflowChart = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: MONTH_LABELS,
+                    datasets: [
+                        {
+                            label: 'Income',
+                            data: incomeData,
+                            backgroundColor: 'rgba(0, 186, 124, 0.7)',
+                            borderColor: 'rgba(0, 186, 124, 1)',
+                            borderWidth: 1
+                        },
+                        {
+                            label: 'Expenses',
+                            data: expenseData,
+                            backgroundColor: 'rgba(244, 33, 46, 0.7)',
+                            borderColor: 'rgba(244, 33, 46, 1)',
+                            borderWidth: 1
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: 'top',
+                            labels: { color: '#8b98a5' }
+                        }
+                    },
+                    scales: {
+                        x: {
+                            grid: { color: 'rgba(58, 65, 73, 0.5)' },
+                            ticks: { color: '#8b98a5' }
+                        },
+                        y: {
+                            grid: { color: 'rgba(58, 65, 73, 0.5)' },
+                            ticks: { color: '#8b98a5' }
+                        }
+                    }
+                }
+            });
+        }
+
+        function renderBurnRateChart() {
+            const ctx = document.getElementById('burnRateChart').getContext('2d');
+            
+            // Calculate expenses by owner
+            const ownerExpenses = {};
+            ['Seb', 'Gea', 'Shared'].forEach(owner => {
+                ownerExpenses[owner] = budgetLines
+                    .filter(l => l.owner === owner && (l.type === 'Expense' || l.type === 'Transfer'))
+                    .reduce((sum, l) => sum + MONTHS.reduce((s, m) => s + (l.monthlyValues?.[m] || 0), 0), 0);
+            });
+
+            if (burnRateChart) {
+                burnRateChart.destroy();
+            }
+
+            burnRateChart = new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    labels: ['Seb', 'Gea', 'Shared'],
+                    datasets: [{
+                        data: [ownerExpenses.Seb, ownerExpenses.Gea, ownerExpenses.Shared],
+                        backgroundColor: [
+                            'rgba(29, 155, 240, 0.8)',
+                            'rgba(136, 84, 208, 0.8)',
+                            'rgba(0, 186, 124, 0.8)'
+                        ],
+                        borderColor: [
+                            'rgba(29, 155, 240, 1)',
+                            'rgba(136, 84, 208, 1)',
+                            'rgba(0, 186, 124, 1)'
+                        ],
+                        borderWidth: 2
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: 'bottom',
+                            labels: { color: '#8b98a5' }
+                        }
+                    }
+                }
+            });
+        }
+
+        // =====================================================
+        // EXPORT FUNCTIONS
+        // =====================================================
+        function exportToExcel() {
+            // Prepare data
+            const data = [];
+            
+            // Header row
+            data.push(['Title', 'Transaction ID', 'Owner', 'Type', 'From', 'To', 'Status', ...MONTH_LABELS, 'Average']);
+            
+            // Data rows
+            budgetLines.forEach(line => {
+                const avg = MONTHS.reduce((sum, m) => sum + (line.monthlyValues?.[m] || 0), 0) / 12;
+                data.push([
+                    line.title,
+                    line.transactionId || '',
+                    line.owner,
+                    line.type,
+                    getEntityName(line.sourceId),
+                    getEntityName(line.destinationId),
+                    line.status || 'Confirmed',
+                    ...MONTHS.map(m => line.monthlyValues?.[m] || 0),
+                    Math.round(avg * 100) / 100
+                ]);
+            });
+
+            // Create workbook and worksheet
+            const ws = XLSX.utils.aoa_to_sheet(data);
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, `Budget ${currentYear}`);
+
+            // Download
+            XLSX.writeFile(wb, `PicuBudget_${currentYear}.xlsx`);
+            showToast('Excel file downloaded', 'success');
+        }
+
+        // =====================================================
+        // UTILITY FUNCTIONS
+        // =====================================================
+        function formatNumber(num) {
+            return new Intl.NumberFormat('da-DK', {
+                minimumFractionDigits: 0,
+                maximumFractionDigits: 2
+            }).format(num);
+        }
+
+        function showToast(message, type = 'info') {
+            const container = document.getElementById('toastContainer');
+            const toast = document.createElement('div');
+            toast.className = `toast ${type}`;
+            toast.innerHTML = `
+                <span>${type === 'success' ? '✅' : type === 'error' ? '❌' : type === 'warning' ? '⚠️' : 'ℹ️'}</span>
+                <span>${message}</span>
+            `;
+            container.appendChild(toast);
+
+            setTimeout(() => {
+                toast.style.animation = 'slideIn 0.3s ease reverse';
+                setTimeout(() => toast.remove(), 300);
+            }, 3000);
+        }
+
+        function showDeleteConfirmation(message, onConfirm) {
+            document.getElementById('deleteConfirmMessage').textContent = message;
+            document.getElementById('deleteConfirmBtn').onclick = () => {
+                onConfirm();
+                closeDeleteConfirmModal();
+            };
+            document.getElementById('deleteConfirmModal').classList.add('visible');
+        }
+
+        function closeDeleteConfirmModal() {
+            document.getElementById('deleteConfirmModal').classList.remove('visible');
+        }
+    </script>
+</body>
+</html>
