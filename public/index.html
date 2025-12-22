@@ -1399,6 +1399,7 @@
             <div class="nav-tabs">
                 <button class="nav-tab active" data-view="budget">📊 Budget Sheet</button>
                 <button class="nav-tab" data-view="statistics">📈 Statistics</button>
+                <button class="nav-tab" data-view="savings">💰 Savings</button>
                 <button class="nav-tab" data-view="settings">⚙️ Settings</button>
             </div>
             <div class="nav-actions">
@@ -1634,6 +1635,22 @@
                             </div>
                         </div>
                     </div>
+                </div>
+            </section>
+
+            <!-- Savings View -->
+            <section class="view-section" id="savingsView">
+                <div class="section-header">
+                    <h2>💰 Savings Tracker</h2>
+                    <button class="btn btn-secondary" onclick="refreshSavingsBalances()">🔄 Refresh Balances</button>
+                </div>
+
+                <p style="color: var(--text-secondary); margin-bottom: 24px; font-size: 13px;">
+                    Track your savings accounts. Balances auto-increment based on budget transactions, or manually update them anytime.
+                </p>
+
+                <div id="savingsContainer" class="owner-dashboards">
+                    <!-- Will be populated by renderSavingsView() -->
                 </div>
             </section>
 
@@ -1966,6 +1983,22 @@
                         💡 Link this card to an account so card expenses count as outflows from that account.
                     </p>
                 </div>
+                <div class="form-group" id="savingsAccountGroup" style="display: none;">
+                    <div class="toggle-container" style="margin: 0; padding: 12px; background: var(--bg-tertiary); border-radius: 6px;">
+                        <div class="toggle-switch" id="savingsAccountToggle" onclick="toggleSavingsAccount()"></div>
+                        <div style="flex: 1;">
+                            <span class="toggle-label" style="display: block; margin-bottom: 4px;">💰 This is a savings account</span>
+                            <p style="font-size: 11px; color: var(--text-muted); margin: 0;">Track balance and auto-calculate growth from budget transactions</p>
+                        </div>
+                    </div>
+                    <div id="initialBalanceGroup" style="display: none; margin-top: 12px;">
+                        <label>Initial Balance (optional)</label>
+                        <input type="number" id="entityInitialBalance" placeholder="0" step="0.01">
+                        <p style="font-size: 11px; color: var(--text-muted); margin-top: 6px;">
+                            Starting balance for this savings account. Leave at 0 if starting fresh.
+                        </p>
+                    </div>
+                </div>
             </div>
             <div class="modal-footer">
                 <button class="btn btn-secondary" onclick="closeEntityModal()">Cancel</button>
@@ -2148,6 +2181,8 @@
                     
                     if (tab.dataset.view === 'statistics') {
                         renderAllStatistics();
+                    } else if (tab.dataset.view === 'savings') {
+                        renderSavingsView();
                     }
                 });
             });
@@ -2381,9 +2416,9 @@
             const linkedCards = findCardsLinkedToAccount(salaryAccountId);
             const linkedCardIds = linkedCards.map(c => c.id);
             
-            // All income that flows INTO the salary account
+            // All income AND transfers that flow INTO the salary account
             const incomeLines = budgetLines.filter(l => 
-                l.type === 'Income' && l.destinationId === salaryAccountId
+                (l.type === 'Income' || l.type === 'Transfer') && l.destinationId === salaryAccountId
             );
             
             const totalIncome = incomeLines.reduce((sum, l) => 
@@ -2601,8 +2636,9 @@
                 .filter(l => l.type === 'Income')
                 .reduce((sum, l) => sum + MONTHS.reduce((s, m) => s + (l.monthlyValues?.[m] || 0), 0), 0);
             
+            // Only count actual expenses (money leaving household), NOT internal transfers
             const totalExpenses = budgetLines
-                .filter(l => l.type === 'Expense' || l.type === 'Transfer')
+                .filter(l => l.type === 'Expense')
                 .reduce((sum, l) => sum + MONTHS.reduce((s, m) => s + (l.monthlyValues?.[m] || 0), 0), 0);
             
             const netSavings = totalIncome - totalExpenses;
@@ -2940,8 +2976,9 @@
                     .reduce((sum, l) => sum + (l.monthlyValues?.[m] || 0), 0)
             );
             
+            // Only count actual expenses, NOT internal transfers
             const expenseData = MONTHS.map(m => 
-                budgetLines.filter(l => l.type === 'Expense' || l.type === 'Transfer')
+                budgetLines.filter(l => l.type === 'Expense')
                     .reduce((sum, l) => sum + (l.monthlyValues?.[m] || 0), 0)
             );
 
@@ -2964,7 +3001,7 @@
                             borderWidth: 1
                         },
                         {
-                            label: 'Expenses + Transfers',
+                            label: 'Expenses',
                             data: expenseData,
                             backgroundColor: 'rgba(244, 33, 46, 0.7)',
                             borderColor: 'rgba(244, 33, 46, 1)',
@@ -2989,10 +3026,11 @@
         function renderBurnRateChart() {
             const ctx = document.getElementById('burnRateChart').getContext('2d');
             
+            // Only count actual expenses (money leaving household), not internal transfers
             const ownerExpenses = {};
             ['Seb', 'Gea', 'Shared'].forEach(owner => {
                 ownerExpenses[owner] = budgetLines
-                    .filter(l => l.owner === owner && (l.type === 'Expense' || l.type === 'Transfer'))
+                    .filter(l => l.owner === owner && l.type === 'Expense')
                     .reduce((sum, l) => sum + MONTHS.reduce((s, m) => s + (l.monthlyValues?.[m] || 0), 0), 0);
             });
 
@@ -3231,6 +3269,11 @@
                     return `<option value="${e.id}" style="background: ${bgColor};">${e.name} (${e.owner})</option>`;
                 }).join('');
             
+            // Reset savings toggle
+            document.getElementById('savingsAccountToggle').classList.remove('active');
+            document.getElementById('initialBalanceGroup').style.display = 'none';
+            document.getElementById('entityInitialBalance').value = '';
+            
             if (entityId) {
                 title.textContent = 'Edit Entity';
                 const entity = entities.find(e => e.id === entityId);
@@ -3241,6 +3284,13 @@
                     updateEntityTypeOptions();
                     document.getElementById('entityOwner').value = entity.owner;
                     document.getElementById('entityParentAccount').value = entity.parentAccountId || '';
+                    
+                    // Set savings account toggle if applicable
+                    if (entity.isSavings) {
+                        document.getElementById('savingsAccountToggle').classList.add('active');
+                        document.getElementById('initialBalanceGroup').style.display = 'block';
+                        document.getElementById('entityInitialBalance').value = entity.currentBalance || 0;
+                    }
                 }
             } else {
                 title.textContent = 'Add Entity';
@@ -3266,6 +3316,8 @@
             const type = document.getElementById('entityType').value;
             const owner = document.getElementById('entityOwner').value;
             const parentAccountId = document.getElementById('entityParentAccount').value || null;
+            const isSavings = type === 'Account' && document.getElementById('savingsAccountToggle').classList.contains('active');
+            const currentBalance = isSavings ? (parseFloat(document.getElementById('entityInitialBalance').value) || 0) : 0;
 
             if (!name) {
                 showToast('Entity name is required', 'error');
@@ -3277,6 +3329,13 @@
             // Only save parentAccountId for cards
             if (type === 'Card') {
                 entityData.parentAccountId = parentAccountId;
+            }
+            
+            // Save savings account data for accounts
+            if (type === 'Account') {
+                entityData.isSavings = isSavings;
+                entityData.currentBalance = currentBalance;
+                entityData.lastBalanceUpdate = new Date().toISOString();
             }
 
             try {
@@ -3290,6 +3349,9 @@
                 
                 closeEntityModal();
                 await loadEntities();
+                if (document.querySelector('.nav-tab[data-view="savings"]')?.classList.contains('active')) {
+                    renderSavingsView();
+                }
             } catch (error) {
                 console.error('Error saving entity:', error);
                 showToast('Error saving entity', 'error');
@@ -3416,6 +3478,7 @@
             const entityType = document.getElementById('entityType').value;
             const allOption = document.querySelector('#entityOwner option[value="All"]');
             const parentAccountGroup = document.getElementById('parentAccountGroup');
+            const savingsAccountGroup = document.getElementById('savingsAccountGroup');
             
             // Show/hide "All" owner option for creditors and income sources
             if (entityType === 'Creditor' || entityType === 'Income Source') {
@@ -3433,6 +3496,20 @@
             } else {
                 parentAccountGroup.style.display = 'none';
             }
+            
+            // Show/hide savings account toggle for accounts
+            if (entityType === 'Account') {
+                savingsAccountGroup.style.display = 'block';
+            } else {
+                savingsAccountGroup.style.display = 'none';
+            }
+        }
+
+        function toggleSavingsAccount() {
+            const toggle = document.getElementById('savingsAccountToggle');
+            const initialBalanceGroup = document.getElementById('initialBalanceGroup');
+            toggle.classList.toggle('active');
+            initialBalanceGroup.style.display = toggle.classList.contains('active') ? 'block' : 'none';
         }
 
         // =====================================================
@@ -4306,6 +4383,131 @@
 
             XLSX.writeFile(wb, `PicuBudget_${currentYear}.xlsx`);
             showToast('Excel file downloaded', 'success');
+        }
+
+        // =====================================================
+        // SAVINGS TRACKING FUNCTIONS
+        // =====================================================
+        function renderSavingsView() {
+            const savingsAccounts = entities.filter(e => e.type === 'Account' && e.isSavings);
+            const container = document.getElementById('savingsContainer');
+            
+            if (savingsAccounts.length === 0) {
+                container.innerHTML = `
+                    <div class="empty-state" style="grid-column: 1 / -1;">
+                        <h3>No savings accounts yet</h3>
+                        <p>Go to Settings → Infrastructure Manager and mark accounts as "Savings Account" to track them here.</p>
+                    </div>
+                `;
+                return;
+            }
+            
+            container.innerHTML = savingsAccounts.map(account => {
+                // Calculate monthly contribution from budget lines
+                const incomingTransfers = budgetLines.filter(l => 
+                    l.year === currentYear && 
+                    l.type === 'Transfer' && 
+                    l.destinationId === account.id
+                );
+                
+                const monthlyContribution = incomingTransfers.reduce((sum, l) => 
+                    sum + MONTHS.reduce((s, m) => s + (l.monthlyValues?.[m] || 0), 0) / 12, 0
+                );
+                
+                const annualContribution = monthlyContribution * 12;
+                const currentBalance = account.currentBalance || 0;
+                const projectedYearEnd = currentBalance + annualContribution;
+                
+                const ownerClass = `owner-${account.owner.toLowerCase()}`;
+                const ownerColor = account.owner === 'Seb' ? 'var(--seb-color)' : 
+                                  account.owner === 'Gea' ? 'var(--gea-color)' : 
+                                  'var(--shared-color)';
+                
+                return `
+                    <div class="owner-card ${ownerClass}" style="min-width: 320px;">
+                        <div class="owner-card-header">
+                            <h3>${account.name}</h3>
+                            <span class="owner-badge">${account.owner}</span>
+                        </div>
+                        <div class="owner-card-body">
+                            <div class="owner-stat-row" style="background: var(--bg-tertiary); margin: -20px -20px 16px -20px; padding: 16px 20px;">
+                                <span class="owner-stat-label"><strong>💰 Current Balance</strong></span>
+                                <div style="display: flex; align-items: center; gap: 8px;">
+                                    <input type="number" 
+                                           value="${currentBalance}" 
+                                           onchange="updateSavingsBalance('${account.id}', this.value)"
+                                           style="width: 120px; padding: 6px 8px; background: var(--bg-secondary); border: 1px solid var(--border-color); border-radius: 4px; color: var(--text-primary); font-family: 'SF Mono', Monaco, monospace; font-size: 14px; font-weight: 600; text-align: right;"
+                                           step="0.01">
+                                    <button onclick="updateSavingsBalance('${account.id}', document.querySelector('[onchange*=\\'${account.id}\\']').value)" 
+                                            class="btn btn-sm btn-primary" 
+                                            style="padding: 6px 10px;">
+                                        💾
+                                    </button>
+                                </div>
+                            </div>
+                            
+                            ${account.lastBalanceUpdate ? `
+                                <div style="font-size: 11px; color: var(--text-muted); margin-bottom: 16px; text-align: center;">
+                                    Last updated: ${new Date(account.lastBalanceUpdate).toLocaleDateString('da-DK')}
+                                </div>
+                            ` : ''}
+                            
+                            <div class="owner-stat-row">
+                                <span class="owner-stat-label">📈 Monthly Contribution</span>
+                                <span class="owner-stat-value positive">+${formatNumber(monthlyContribution)}</span>
+                            </div>
+                            
+                            <div class="owner-stat-row">
+                                <span class="owner-stat-label">📅 Annual Contribution</span>
+                                <span class="owner-stat-value positive">+${formatNumber(annualContribution)}</span>
+                            </div>
+                            
+                            <div class="owner-stat-row highlight" style="margin-top: 16px;">
+                                <span class="owner-stat-label"><strong>🎯 Projected Year-End</strong></span>
+                                <span class="owner-stat-value positive">${formatNumber(projectedYearEnd)}</span>
+                            </div>
+                            
+                            ${incomingTransfers.length > 0 ? `
+                                <div style="margin-top: 20px; padding-top: 16px; border-top: 1px dashed var(--border-color);">
+                                    <h5 style="font-size: 12px; color: var(--text-secondary); margin-bottom: 12px;">💸 Contributing Transactions:</h5>
+                                    ${incomingTransfers.map(t => `
+                                        <div class="owner-stat-row" style="padding: 6px 0; font-size: 12px;">
+                                            <span class="owner-stat-label" style="color: var(--text-muted);">${t.title}</span>
+                                            <span class="owner-stat-value" style="font-size: 12px; color: var(--text-secondary);">
+                                                ${formatNumber(MONTHS.reduce((s, m) => s + (t.monthlyValues?.[m] || 0), 0) / 12)}/mo
+                                            </span>
+                                        </div>
+                                    `).join('')}
+                                </div>
+                            ` : ''}
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        async function updateSavingsBalance(accountId, newBalance) {
+            const balance = parseFloat(newBalance) || 0;
+            
+            try {
+                await db.collection('entities').doc(accountId).update({
+                    currentBalance: balance,
+                    lastBalanceUpdate: new Date().toISOString()
+                });
+                
+                showToast('Balance updated successfully', 'success');
+                await loadEntities();
+                renderSavingsView();
+            } catch (error) {
+                console.error('Error updating balance:', error);
+                showToast('Error updating balance', 'error');
+            }
+        }
+
+        function refreshSavingsBalances() {
+            showToast('Recalculating balances...', 'info');
+            renderSavingsView();
+            showToast('Balances refreshed', 'success');
         }
 
         // =====================================================
