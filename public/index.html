@@ -1545,17 +1545,17 @@
                 <div class="stats-panel" id="personalPanel">
                     <div class="split-config">
                         <label>Shared expense split:</label>
-                        <select id="sharedSplitRatio" onchange="renderPersonalDashboards()">
+                        <select id="sharedSplitRatio" onchange="onSplitChange()">
                             <option value="50-50">50% / 50% (Equal)</option>
                             <option value="60-40">60% Seb / 40% Gea</option>
                             <option value="40-60">40% Seb / 60% Gea</option>
                             <option value="custom">Custom...</option>
                         </select>
                         <div id="customSplitInputs" style="display: none;">
-                            <input type="number" id="sebSplitPercent" value="50" min="0" max="100" style="width: 60px; padding: 6px; background: var(--bg-secondary); border: 1px solid var(--border-color); border-radius: 4px; color: var(--text-primary);" onchange="renderPersonalDashboards()">
+                            <input type="number" id="sebSplitPercent" value="50" min="0" max="100" style="width: 60px; padding: 6px; background: var(--bg-secondary); border: 1px solid var(--border-color); border-radius: 4px; color: var(--text-primary);" onchange="onSplitChange()">
                             <span>% Seb</span>
                         </div>
-                        <span class="split-info">💡 This affects how shared expenses are divided in the personal views</span>
+                        <span class="split-info">💡 This affects transfer calculations</span>
                     </div>
 
                     <div class="owner-dashboards" id="ownerDashboards">
@@ -1565,6 +1565,21 @@
 
                 <!-- Transfer Calculator Panel -->
                 <div class="stats-panel" id="transfersPanel">
+                    <div class="split-config">
+                        <label>Shared expense split:</label>
+                        <select id="sharedSplitRatioTransfer" onchange="onSplitChangeTransfer()">
+                            <option value="50-50">50% / 50% (Equal)</option>
+                            <option value="60-40">60% Seb / 40% Gea</option>
+                            <option value="40-60">40% Seb / 60% Gea</option>
+                            <option value="custom">Custom...</option>
+                        </select>
+                        <div id="customSplitInputsTransfer" style="display: none;">
+                            <input type="number" id="sebSplitPercentTransfer" value="50" min="0" max="100" style="width: 60px; padding: 6px; background: var(--bg-secondary); border: 1px solid var(--border-color); border-radius: 4px; color: var(--text-primary);" onchange="onSplitChangeTransfer()">
+                            <span>% Seb</span>
+                        </div>
+                        <span class="split-info">💡 Adjust split to see how transfers should change</span>
+                    </div>
+                    
                     <div class="quick-summary">
                         <h3>💰 Monthly Transfer Summary</h3>
                         <p style="color: var(--text-secondary); margin-bottom: 20px;">Based on your budget, here's what each person needs to transfer to cover their share of expenses.</p>
@@ -1640,6 +1655,7 @@
                                 <th>Description</th>
                                 <th>Type</th>
                                 <th>Owner</th>
+                                <th>Parent Account</th>
                                 <th style="width: 100px;">Actions</th>
                             </tr>
                         </thead>
@@ -1926,7 +1942,7 @@
                 <div class="form-row">
                     <div class="form-group">
                         <label>Type *</label>
-                        <select id="entityType" onchange="updateEntityOwnerOptions()">
+                        <select id="entityType" onchange="updateEntityTypeOptions()">
                             <option value="Account">Account</option>
                             <option value="Card">Card</option>
                             <option value="Creditor">Creditor (Expense destination)</option>
@@ -1942,6 +1958,15 @@
                             <option value="All" class="owner-all-option" style="display: none;">All (Any Owner)</option>
                         </select>
                     </div>
+                </div>
+                <div class="form-group" id="parentAccountGroup" style="display: none;">
+                    <label>Parent Account <span style="color: var(--text-muted); font-weight: normal;">(which account funds this card?)</span></label>
+                    <select id="entityParentAccount">
+                        <option value="">— No parent account —</option>
+                    </select>
+                    <p style="font-size: 11px; color: var(--text-muted); margin-top: 6px;">
+                        💡 Link this card to an account so card expenses count as outflows from that account.
+                    </p>
                 </div>
             </div>
             <div class="modal-footer">
@@ -2143,10 +2168,7 @@
         }
 
         function setupSplitConfigListener() {
-            document.getElementById('sharedSplitRatio').addEventListener('change', (e) => {
-                const customInputs = document.getElementById('customSplitInputs');
-                customInputs.style.display = e.target.value === 'custom' ? 'flex' : 'none';
-            });
+            // Split config is now handled by onSplitChange and onSplitChangeTransfer
         }
 
         // =====================================================
@@ -2250,10 +2272,15 @@
         // =====================================================
         // STATISTICS CALCULATION HELPERS
         // =====================================================
-        function getSharedSplit() {
-            const ratio = document.getElementById('sharedSplitRatio').value;
+        function getSharedSplit(useTransferSelector = false) {
+            const ratioId = useTransferSelector ? 'sharedSplitRatioTransfer' : 'sharedSplitRatio';
+            const percentId = useTransferSelector ? 'sebSplitPercentTransfer' : 'sebSplitPercent';
+            const ratioEl = document.getElementById(ratioId);
+            const ratio = ratioEl ? ratioEl.value : '50-50';
+            
             if (ratio === 'custom') {
-                const sebPercent = parseFloat(document.getElementById('sebSplitPercent').value) || 50;
+                const percentEl = document.getElementById(percentId);
+                const sebPercent = percentEl ? parseFloat(percentEl.value) || 50 : 50;
                 return { seb: sebPercent / 100, gea: (100 - sebPercent) / 100 };
             }
             const splits = {
@@ -2264,97 +2291,290 @@
             return splits[ratio] || { seb: 0.5, gea: 0.5 };
         }
 
-        function calculateOwnerStats(owner) {
-            const split = getSharedSplit();
+        // Handle split change in Personal Dashboards panel
+        function onSplitChange() {
+            const ratio = document.getElementById('sharedSplitRatio').value;
+            document.getElementById('customSplitInputs').style.display = ratio === 'custom' ? 'flex' : 'none';
+            // Sync to transfer panel
+            const transferSelect = document.getElementById('sharedSplitRatioTransfer');
+            if (transferSelect) transferSelect.value = ratio;
+            if (ratio === 'custom') {
+                const percent = document.getElementById('sebSplitPercent').value;
+                const transferPercent = document.getElementById('sebSplitPercentTransfer');
+                if (transferPercent) transferPercent.value = percent;
+                document.getElementById('customSplitInputsTransfer').style.display = 'flex';
+            } else {
+                document.getElementById('customSplitInputsTransfer').style.display = 'none';
+            }
+            renderPersonalDashboards();
+            renderTransferCalculator();
+        }
+
+        // Handle split change in Transfer Calculator panel
+        function onSplitChangeTransfer() {
+            const ratio = document.getElementById('sharedSplitRatioTransfer').value;
+            document.getElementById('customSplitInputsTransfer').style.display = ratio === 'custom' ? 'flex' : 'none';
+            // Sync to personal panel
+            const personalSelect = document.getElementById('sharedSplitRatio');
+            if (personalSelect) personalSelect.value = ratio;
+            if (ratio === 'custom') {
+                const percent = document.getElementById('sebSplitPercentTransfer').value;
+                const personalPercent = document.getElementById('sebSplitPercent');
+                if (personalPercent) personalPercent.value = percent;
+                document.getElementById('customSplitInputs').style.display = 'flex';
+            } else {
+                document.getElementById('customSplitInputs').style.display = 'none';
+            }
+            renderPersonalDashboards();
+            renderTransferCalculator();
+        }
+
+        // Find salary account entity for a given owner
+        function findSalaryAccount(owner) {
+            return entities.find(e => 
+                e.type === 'Account' && 
+                e.owner === owner && 
+                e.name.toLowerCase().includes('salary')
+            );
+        }
+
+        // Find budget account entity for a given owner
+        function findBudgetAccount(owner) {
+            return entities.find(e => 
+                e.type === 'Account' && 
+                e.owner === owner && 
+                e.name.toLowerCase().includes('budget')
+            );
+        }
+
+        // Find all cards linked to a specific account
+        function findCardsLinkedToAccount(accountId) {
+            return entities.filter(e => e.type === 'Card' && e.parentAccountId === accountId);
+        }
+
+        // Get the effective source account for a transaction (resolves card -> parent account)
+        function getEffectiveSourceAccount(sourceId) {
+            const sourceEntity = entities.find(e => e.id === sourceId);
+            if (!sourceEntity) return sourceId;
             
-            // Personal income (directly owned)
-            const personalIncome = budgetLines
-                .filter(l => l.owner === owner && l.type === 'Income')
-                .reduce((sum, l) => sum + MONTHS.reduce((s, m) => s + (l.monthlyValues?.[m] || 0), 0) / 12, 0);
+            // If source is a card with a parent account, return the parent account
+            if (sourceEntity.type === 'Card' && sourceEntity.parentAccountId) {
+                return sourceEntity.parentAccountId;
+            }
+            return sourceId;
+        }
+
+        // NEW: Account-based calculation - tracks money in/out of salary account (including via linked cards)
+        function calculateSalaryAccountStats(owner) {
+            const salaryAccount = findSalaryAccount(owner);
+            const salaryAccountId = salaryAccount?.id;
             
-            // Personal expenses (directly owned, excluding transfers to shared)
-            const personalExpenses = budgetLines
-                .filter(l => l.owner === owner && l.type === 'Expense')
-                .reduce((sum, l) => sum + MONTHS.reduce((s, m) => s + (l.monthlyValues?.[m] || 0), 0) / 12, 0);
+            if (!salaryAccountId) {
+                return {
+                    totalIncome: 0,
+                    totalOutflows: 0,
+                    disposableIncome: 0,
+                    incomeDetails: [],
+                    outflowDetails: []
+                };
+            }
             
-            // Personal transfers (savings, etc. - not to shared accounts)
-            const personalTransfers = budgetLines
-                .filter(l => l.owner === owner && l.type === 'Transfer')
-                .reduce((sum, l) => sum + MONTHS.reduce((s, m) => s + (l.monthlyValues?.[m] || 0), 0) / 12, 0);
+            // Find all cards linked to this salary account
+            const linkedCards = findCardsLinkedToAccount(salaryAccountId);
+            const linkedCardIds = linkedCards.map(c => c.id);
             
-            // Shared expenses total
-            const sharedExpensesTotal = budgetLines
-                .filter(l => l.owner === 'Shared' && l.type === 'Expense')
-                .reduce((sum, l) => sum + MONTHS.reduce((s, m) => s + (l.monthlyValues?.[m] || 0), 0) / 12, 0);
+            // All income that flows INTO the salary account
+            const incomeLines = budgetLines.filter(l => 
+                l.type === 'Income' && l.destinationId === salaryAccountId
+            );
             
-            // Shared transfers total (credit card, savings, etc.)
-            const sharedTransfersTotal = budgetLines
-                .filter(l => l.owner === 'Shared' && l.type === 'Transfer')
-                .reduce((sum, l) => sum + MONTHS.reduce((s, m) => s + (l.monthlyValues?.[m] || 0), 0) / 12, 0);
+            const totalIncome = incomeLines.reduce((sum, l) => 
+                sum + MONTHS.reduce((s, m) => s + (l.monthlyValues?.[m] || 0), 0) / 12, 0
+            );
             
-            // Owner's share of shared costs
-            const sharePercent = owner === 'Seb' ? split.seb : split.gea;
-            const shareOfSharedExpenses = sharedExpensesTotal * sharePercent;
-            const shareOfSharedTransfers = sharedTransfersTotal * sharePercent;
+            const incomeDetails = incomeLines.map(l => ({
+                title: l.title,
+                avg: MONTHS.reduce((s, m) => s + (l.monthlyValues?.[m] || 0), 0) / 12
+            }));
             
-            // Total obligations
-            const totalObligations = personalExpenses + personalTransfers + shareOfSharedExpenses + shareOfSharedTransfers;
+            // All transfers/expenses that flow OUT of the salary account (directly or via linked cards)
+            const outflowLines = budgetLines.filter(l => {
+                if (l.type !== 'Transfer' && l.type !== 'Expense') return false;
+                // Direct outflows from salary account
+                if (l.sourceId === salaryAccountId) return true;
+                // Outflows from linked cards
+                if (linkedCardIds.includes(l.sourceId)) return true;
+                return false;
+            });
             
-            // Net position
-            const netPosition = personalIncome - totalObligations;
+            const totalOutflows = outflowLines.reduce((sum, l) => 
+                sum + MONTHS.reduce((s, m) => s + (l.monthlyValues?.[m] || 0), 0) / 12, 0
+            );
+            
+            const outflowDetails = outflowLines.map(l => {
+                const sourceEntity = entities.find(e => e.id === l.sourceId);
+                const isFromCard = sourceEntity?.type === 'Card';
+                return {
+                    title: l.title,
+                    avg: MONTHS.reduce((s, m) => s + (l.monthlyValues?.[m] || 0), 0) / 12,
+                    destination: getEntityName(l.destinationId),
+                    type: l.type,
+                    viaCard: isFromCard ? sourceEntity.name : null
+                };
+            });
+            
+            // Disposable = what's left in salary account after all outflows
+            const disposableIncome = totalIncome - totalOutflows;
             
             return {
-                personalIncome,
-                personalExpenses,
-                personalTransfers,
-                sharedExpensesTotal,
-                sharedTransfersTotal,
-                shareOfSharedExpenses,
-                shareOfSharedTransfers,
-                sharePercent,
-                totalObligations,
-                netPosition
+                totalIncome,
+                totalOutflows,
+                disposableIncome,
+                incomeDetails,
+                outflowDetails,
+                linkedCards: linkedCards.map(c => c.name)
             };
         }
 
-        function calculateTransferNeeds() {
-            const split = getSharedSplit();
+        // Calculate what flows through the budget account (personal expenses)
+        function calculateBudgetAccountStats(owner) {
+            const budgetAccount = findBudgetAccount(owner);
+            const budgetAccountId = budgetAccount?.id;
             
-            // Calculate total shared account needs per month
-            const sharedExpenses = budgetLines
-                .filter(l => l.owner === 'Shared' && (l.type === 'Expense' || l.type === 'Transfer'))
-                .reduce((sum, l) => sum + MONTHS.reduce((s, m) => s + (l.monthlyValues?.[m] || 0), 0) / 12, 0);
+            if (!budgetAccountId) {
+                return { totalExpenses: 0, expenseDetails: [] };
+            }
             
-            // Income going directly to shared (like institution support transfer)
-            const sharedIncome = budgetLines
-                .filter(l => l.owner === 'Shared' && l.type === 'Income')
-                .reduce((sum, l) => sum + MONTHS.reduce((s, m) => s + (l.monthlyValues?.[m] || 0), 0) / 12, 0);
+            // All expenses paid from budget account
+            const expenseLines = budgetLines.filter(l => 
+                l.type === 'Expense' && l.sourceId === budgetAccountId
+            );
             
-            // Find transfers TO shared accounts (these cover part of shared expenses)
-            const transfersToShared = {};
-            ['Seb', 'Gea'].forEach(owner => {
-                transfersToShared[owner] = budgetLines
-                    .filter(l => {
-                        if (l.owner !== owner || l.type !== 'Transfer') return false;
-                        const dest = entities.find(e => e.id === l.destinationId);
-                        return dest && dest.owner === 'Shared';
-                    })
-                    .reduce((sum, l) => sum + MONTHS.reduce((s, m) => s + (l.monthlyValues?.[m] || 0), 0) / 12, 0);
+            const totalExpenses = expenseLines.reduce((sum, l) => 
+                sum + MONTHS.reduce((s, m) => s + (l.monthlyValues?.[m] || 0), 0) / 12, 0
+            );
+            
+            const expenseDetails = expenseLines.map(l => ({
+                title: l.title,
+                avg: MONTHS.reduce((s, m) => s + (l.monthlyValues?.[m] || 0), 0) / 12,
+                destination: getEntityName(l.destinationId)
+            })).sort((a, b) => b.avg - a.avg);
+            
+            return { totalExpenses, expenseDetails };
+        }
+
+        // Calculate shared account stats
+        function calculateSharedAccountStats() {
+            const sharedBudgetAccount = entities.find(e => 
+                e.type === 'Account' && 
+                e.owner === 'Shared' && 
+                e.name.toLowerCase().includes('budget')
+            );
+            const sharedAccountId = sharedBudgetAccount?.id;
+            
+            if (!sharedAccountId) {
+                return {
+                    totalIncoming: 0,
+                    totalOutgoing: 0,
+                    balance: 0,
+                    incomingDetails: [],
+                    outgoingDetails: []
+                };
+            }
+            
+            // Find all cards linked to this shared account
+            const linkedCards = findCardsLinkedToAccount(sharedAccountId);
+            const linkedCardIds = linkedCards.map(c => c.id);
+            
+            // All transfers/income INTO shared account
+            const incomingLines = budgetLines.filter(l => 
+                (l.type === 'Transfer' || l.type === 'Income') && l.destinationId === sharedAccountId
+            );
+            
+            const totalIncoming = incomingLines.reduce((sum, l) => 
+                sum + MONTHS.reduce((s, m) => s + (l.monthlyValues?.[m] || 0), 0) / 12, 0
+            );
+            
+            const incomingDetails = incomingLines.map(l => ({
+                title: l.title,
+                avg: MONTHS.reduce((s, m) => s + (l.monthlyValues?.[m] || 0), 0) / 12,
+                owner: l.owner
+            }));
+            
+            // All expenses/transfers OUT of shared account (directly or via linked cards)
+            const outgoingLines = budgetLines.filter(l => {
+                if (l.type !== 'Expense' && l.type !== 'Transfer') return false;
+                // Direct outflows from shared account
+                if (l.sourceId === sharedAccountId) return true;
+                // Outflows from linked cards
+                if (linkedCardIds.includes(l.sourceId)) return true;
+                return false;
             });
             
-            // What each person actually needs to cover
-            const sebShare = sharedExpenses * split.seb;
-            const geaShare = sharedExpenses * split.gea;
+            const totalOutgoing = outgoingLines.reduce((sum, l) => 
+                sum + MONTHS.reduce((s, m) => s + (l.monthlyValues?.[m] || 0), 0) / 12, 0
+            );
+            
+            const outgoingDetails = outgoingLines.map(l => {
+                const sourceEntity = entities.find(e => e.id === l.sourceId);
+                const isFromCard = sourceEntity?.type === 'Card';
+                return {
+                    title: l.title,
+                    avg: MONTHS.reduce((s, m) => s + (l.monthlyValues?.[m] || 0), 0) / 12,
+                    type: l.type,
+                    viaCard: isFromCard ? sourceEntity.name : null
+                };
+            }).sort((a, b) => b.avg - a.avg);
             
             return {
-                totalSharedExpenses: sharedExpenses,
+                totalIncoming,
+                totalOutgoing,
+                balance: totalIncoming - totalOutgoing,
+                incomingDetails,
+                outgoingDetails,
+                linkedCards: linkedCards.map(c => c.name)
+            };
+        }
+
+        // Calculate transfer needs based on shared account shortfall
+        function calculateTransferNeeds() {
+            const split = getSharedSplit();
+            const sharedStats = calculateSharedAccountStats();
+            
+            // Total shared costs = everything going out of shared account
+            const totalSharedCosts = sharedStats.totalOutgoing;
+            
+            // Current transfers coming in (excluding shared income like child support TO shared)
+            const currentTransfersFromSeb = sharedStats.incomingDetails
+                .filter(d => d.owner === 'Seb')
+                .reduce((sum, d) => sum + d.avg, 0);
+            
+            const currentTransfersFromGea = sharedStats.incomingDetails
+                .filter(d => d.owner === 'Gea')
+                .reduce((sum, d) => sum + d.avg, 0);
+            
+            const sharedIncome = sharedStats.incomingDetails
+                .filter(d => d.owner === 'Shared')
+                .reduce((sum, d) => sum + d.avg, 0);
+            
+            // What needs to be covered by transfers (after shared income)
+            const needsToBeCovered = totalSharedCosts - sharedIncome;
+            
+            // What each person SHOULD transfer based on split
+            const sebShouldTransfer = needsToBeCovered * split.seb;
+            const geaShouldTransfer = needsToBeCovered * split.gea;
+            
+            return {
+                totalSharedCosts,
                 sharedIncome,
-                sebShare,
-                geaShare,
-                sebCurrentTransfer: transfersToShared.Seb,
-                geaCurrentTransfer: transfersToShared.Gea,
-                sebDifference: sebShare - transfersToShared.Seb,
-                geaDifference: geaShare - transfersToShared.Gea
+                needsToBeCovered,
+                sebCurrentTransfer: currentTransfersFromSeb,
+                geaCurrentTransfer: currentTransfersFromGea,
+                sebShouldTransfer,
+                geaShouldTransfer,
+                sebDifference: sebShouldTransfer - currentTransfersFromSeb,
+                geaDifference: geaShouldTransfer - currentTransfersFromGea,
+                sharedAccountBalance: sharedStats.balance
             };
         }
 
@@ -2415,55 +2635,71 @@
         }
 
         function renderPersonalDashboards() {
-            const sebStats = calculateOwnerStats('Seb');
-            const geaStats = calculateOwnerStats('Gea');
+            const sebSalaryStats = calculateSalaryAccountStats('Seb');
+            const geaSalaryStats = calculateSalaryAccountStats('Gea');
+            const sebBudgetStats = calculateBudgetAccountStats('Seb');
+            const geaBudgetStats = calculateBudgetAccountStats('Gea');
+            const sharedStats = calculateSharedAccountStats();
             const split = getSharedSplit();
             
-            // Calculate shared stats
-            const sharedExpenses = budgetLines
-                .filter(l => l.owner === 'Shared' && l.type === 'Expense')
-                .reduce((sum, l) => sum + MONTHS.reduce((s, m) => s + (l.monthlyValues?.[m] || 0), 0) / 12, 0);
-            
-            const sharedTransfers = budgetLines
-                .filter(l => l.owner === 'Shared' && l.type === 'Transfer')
-                .reduce((sum, l) => sum + MONTHS.reduce((s, m) => s + (l.monthlyValues?.[m] || 0), 0) / 12, 0);
-            
-            const sharedIncome = budgetLines
-                .filter(l => l.owner === 'Shared' && l.type === 'Income')
-                .reduce((sum, l) => sum + MONTHS.reduce((s, m) => s + (l.monthlyValues?.[m] || 0), 0) / 12, 0);
+            // Check for unlinked cards
+            const unlinkedCards = entities.filter(e => e.type === 'Card' && !e.parentAccountId);
 
             document.getElementById('ownerDashboards').innerHTML = `
+                ${unlinkedCards.length > 0 ? `
+                    <div style="grid-column: 1 / -1; background: rgba(255, 212, 0, 0.1); border: 1px solid rgba(255, 212, 0, 0.3); border-radius: 8px; padding: 12px 16px; margin-bottom: 8px; display: flex; align-items: center; gap: 12px;">
+                        <span style="font-size: 18px;">⚠️</span>
+                        <div>
+                            <strong style="color: var(--accent-yellow);">${unlinkedCards.length} card(s) without parent account</strong>
+                            <p style="font-size: 12px; color: var(--text-secondary); margin: 4px 0 0 0;">
+                                ${unlinkedCards.map(c => c.name).join(', ')} — Link them in Settings → Infrastructure Manager to track card expenses correctly.
+                            </p>
+                        </div>
+                    </div>
+                ` : ''}
+            
                 <!-- Seb's Dashboard -->
                 <div class="owner-card owner-seb">
                     <div class="owner-card-header">
                         <h3>👤 Seb</h3>
-                        <span class="owner-badge">${(split.seb * 100).toFixed(0)}% of shared</span>
+                        <span class="owner-badge">Salary Account</span>
                     </div>
                     <div class="owner-card-body">
-                        <div class="owner-stat-row">
-                            <span class="owner-stat-label">💰 Personal Income</span>
-                            <span class="owner-stat-value positive">${formatNumber(sebStats.personalIncome)}</span>
+                        ${sebSalaryStats.linkedCards?.length > 0 ? `
+                            <div style="font-size: 11px; color: var(--text-muted); margin-bottom: 12px; padding: 8px; background: var(--bg-tertiary); border-radius: 4px;">
+                                💳 Linked cards: ${sebSalaryStats.linkedCards.join(', ')}
+                            </div>
+                        ` : ''}
+                        
+                        <div class="owner-stat-row" style="border-bottom: 2px solid var(--border-color);">
+                            <span class="owner-stat-label"><strong>💰 Income (into Salary)</strong></span>
+                            <span class="owner-stat-value positive">${formatNumber(sebSalaryStats.totalIncome)}</span>
                         </div>
-                        <div class="owner-stat-row">
-                            <span class="owner-stat-label">💳 Personal Expenses</span>
-                            <span class="owner-stat-value negative">-${formatNumber(sebStats.personalExpenses)}</span>
+                        ${sebSalaryStats.incomeDetails.map(d => `
+                            <div class="owner-stat-row" style="padding-left: 20px; font-size: 12px;">
+                                <span class="owner-stat-label" style="color: var(--text-muted);">${d.title}</span>
+                                <span class="owner-stat-value" style="font-size: 12px; color: var(--text-secondary);">${formatNumber(d.avg)}</span>
+                            </div>
+                        `).join('')}
+                        
+                        <div class="owner-stat-row" style="border-bottom: 2px solid var(--border-color); margin-top: 12px;">
+                            <span class="owner-stat-label"><strong>📤 Outflows (from Salary)</strong></span>
+                            <span class="owner-stat-value negative">-${formatNumber(sebSalaryStats.totalOutflows)}</span>
                         </div>
-                        <div class="owner-stat-row">
-                            <span class="owner-stat-label">↗️ Personal Transfers</span>
-                            <span class="owner-stat-value neutral">-${formatNumber(sebStats.personalTransfers)}</span>
-                        </div>
-                        <div class="owner-stat-row">
-                            <span class="owner-stat-label">🏠 Share of Shared Expenses</span>
-                            <span class="owner-stat-value negative">-${formatNumber(sebStats.shareOfSharedExpenses)}</span>
-                        </div>
-                        <div class="owner-stat-row">
-                            <span class="owner-stat-label">↗️ Share of Shared Transfers</span>
-                            <span class="owner-stat-value neutral">-${formatNumber(sebStats.shareOfSharedTransfers)}</span>
-                        </div>
-                        <div class="owner-stat-row highlight">
-                            <span class="owner-stat-label"><strong>📊 Net Position</strong></span>
-                            <span class="owner-stat-value ${sebStats.netPosition >= 0 ? 'positive' : 'negative'}">
-                                ${sebStats.netPosition >= 0 ? '+' : ''}${formatNumber(sebStats.netPosition)}
+                        ${sebSalaryStats.outflowDetails.map(d => `
+                            <div class="owner-stat-row" style="padding-left: 20px; font-size: 12px;">
+                                <span class="owner-stat-label" style="color: var(--text-muted);">
+                                    ${d.title}
+                                    ${d.viaCard ? `<span style="font-size: 10px; opacity: 0.7;"> (via ${d.viaCard})</span>` : ''}
+                                </span>
+                                <span class="owner-stat-value" style="font-size: 12px; color: var(--text-secondary);">-${formatNumber(d.avg)}</span>
+                            </div>
+                        `).join('')}
+                        
+                        <div class="owner-stat-row highlight" style="margin-top: 12px;">
+                            <span class="owner-stat-label"><strong>💵 Disposable Income</strong></span>
+                            <span class="owner-stat-value ${sebSalaryStats.disposableIncome >= 0 ? 'positive' : 'negative'}">
+                                ${formatNumber(sebSalaryStats.disposableIncome)}
                             </span>
                         </div>
                     </div>
@@ -2473,33 +2709,44 @@
                 <div class="owner-card owner-gea">
                     <div class="owner-card-header">
                         <h3>👤 Gea</h3>
-                        <span class="owner-badge">${(split.gea * 100).toFixed(0)}% of shared</span>
+                        <span class="owner-badge">Salary Account</span>
                     </div>
                     <div class="owner-card-body">
-                        <div class="owner-stat-row">
-                            <span class="owner-stat-label">💰 Personal Income</span>
-                            <span class="owner-stat-value positive">${formatNumber(geaStats.personalIncome)}</span>
+                        ${geaSalaryStats.linkedCards?.length > 0 ? `
+                            <div style="font-size: 11px; color: var(--text-muted); margin-bottom: 12px; padding: 8px; background: var(--bg-tertiary); border-radius: 4px;">
+                                💳 Linked cards: ${geaSalaryStats.linkedCards.join(', ')}
+                            </div>
+                        ` : ''}
+                        
+                        <div class="owner-stat-row" style="border-bottom: 2px solid var(--border-color);">
+                            <span class="owner-stat-label"><strong>💰 Income (into Salary)</strong></span>
+                            <span class="owner-stat-value positive">${formatNumber(geaSalaryStats.totalIncome)}</span>
                         </div>
-                        <div class="owner-stat-row">
-                            <span class="owner-stat-label">💳 Personal Expenses</span>
-                            <span class="owner-stat-value negative">-${formatNumber(geaStats.personalExpenses)}</span>
+                        ${geaSalaryStats.incomeDetails.map(d => `
+                            <div class="owner-stat-row" style="padding-left: 20px; font-size: 12px;">
+                                <span class="owner-stat-label" style="color: var(--text-muted);">${d.title}</span>
+                                <span class="owner-stat-value" style="font-size: 12px; color: var(--text-secondary);">${formatNumber(d.avg)}</span>
+                            </div>
+                        `).join('')}
+                        
+                        <div class="owner-stat-row" style="border-bottom: 2px solid var(--border-color); margin-top: 12px;">
+                            <span class="owner-stat-label"><strong>📤 Outflows (from Salary)</strong></span>
+                            <span class="owner-stat-value negative">-${formatNumber(geaSalaryStats.totalOutflows)}</span>
                         </div>
-                        <div class="owner-stat-row">
-                            <span class="owner-stat-label">↗️ Personal Transfers</span>
-                            <span class="owner-stat-value neutral">-${formatNumber(geaStats.personalTransfers)}</span>
-                        </div>
-                        <div class="owner-stat-row">
-                            <span class="owner-stat-label">🏠 Share of Shared Expenses</span>
-                            <span class="owner-stat-value negative">-${formatNumber(geaStats.shareOfSharedExpenses)}</span>
-                        </div>
-                        <div class="owner-stat-row">
-                            <span class="owner-stat-label">↗️ Share of Shared Transfers</span>
-                            <span class="owner-stat-value neutral">-${formatNumber(geaStats.shareOfSharedTransfers)}</span>
-                        </div>
-                        <div class="owner-stat-row highlight">
-                            <span class="owner-stat-label"><strong>📊 Net Position</strong></span>
-                            <span class="owner-stat-value ${geaStats.netPosition >= 0 ? 'positive' : 'negative'}">
-                                ${geaStats.netPosition >= 0 ? '+' : ''}${formatNumber(geaStats.netPosition)}
+                        ${geaSalaryStats.outflowDetails.map(d => `
+                            <div class="owner-stat-row" style="padding-left: 20px; font-size: 12px;">
+                                <span class="owner-stat-label" style="color: var(--text-muted);">
+                                    ${d.title}
+                                    ${d.viaCard ? `<span style="font-size: 10px; opacity: 0.7;"> (via ${d.viaCard})</span>` : ''}
+                                </span>
+                                <span class="owner-stat-value" style="font-size: 12px; color: var(--text-secondary);">-${formatNumber(d.avg)}</span>
+                            </div>
+                        `).join('')}
+                        
+                        <div class="owner-stat-row highlight" style="margin-top: 12px;">
+                            <span class="owner-stat-label"><strong>💵 Disposable Income</strong></span>
+                            <span class="owner-stat-value ${geaSalaryStats.disposableIncome >= 0 ? 'positive' : 'negative'}">
+                                ${formatNumber(geaSalaryStats.disposableIncome)}
                             </span>
                         </div>
                     </div>
@@ -2508,35 +2755,47 @@
                 <!-- Shared Dashboard -->
                 <div class="owner-card owner-shared">
                     <div class="owner-card-header">
-                        <h3>🏠 Shared Household</h3>
-                        <span class="owner-badge">Joint Account</span>
+                        <h3>🏠 Shared Account</h3>
+                        <span class="owner-badge">Budget Account</span>
                     </div>
                     <div class="owner-card-body">
-                        <div class="owner-stat-row">
-                            <span class="owner-stat-label">💰 Shared Income</span>
-                            <span class="owner-stat-value positive">${formatNumber(sharedIncome)}</span>
+                        ${sharedStats.linkedCards?.length > 0 ? `
+                            <div style="font-size: 11px; color: var(--text-muted); margin-bottom: 12px; padding: 8px; background: var(--bg-tertiary); border-radius: 4px;">
+                                💳 Linked cards: ${sharedStats.linkedCards.join(', ')}
+                            </div>
+                        ` : ''}
+                        
+                        <div class="owner-stat-row" style="border-bottom: 2px solid var(--border-color);">
+                            <span class="owner-stat-label"><strong>💰 Incoming Transfers</strong></span>
+                            <span class="owner-stat-value positive">${formatNumber(sharedStats.totalIncoming)}</span>
                         </div>
-                        <div class="owner-stat-row">
-                            <span class="owner-stat-label">💳 Total Shared Expenses</span>
-                            <span class="owner-stat-value negative">-${formatNumber(sharedExpenses)}</span>
+                        ${sharedStats.incomingDetails.map(d => `
+                            <div class="owner-stat-row" style="padding-left: 20px; font-size: 12px;">
+                                <span class="owner-stat-label" style="color: var(--text-muted);">${d.title} <span style="opacity: 0.6;">(${d.owner})</span></span>
+                                <span class="owner-stat-value" style="font-size: 12px; color: var(--text-secondary);">${formatNumber(d.avg)}</span>
+                            </div>
+                        `).join('')}
+                        
+                        <div class="owner-stat-row" style="border-bottom: 2px solid var(--border-color); margin-top: 12px;">
+                            <span class="owner-stat-label"><strong>📤 Outgoing (Expenses + Transfers)</strong></span>
+                            <span class="owner-stat-value negative">-${formatNumber(sharedStats.totalOutgoing)}</span>
                         </div>
-                        <div class="owner-stat-row">
-                            <span class="owner-stat-label">↗️ Total Shared Transfers</span>
-                            <span class="owner-stat-value neutral">-${formatNumber(sharedTransfers)}</span>
+                        
+                        <div class="owner-stat-row highlight" style="margin-top: 12px;">
+                            <span class="owner-stat-label"><strong>📊 Monthly Balance</strong></span>
+                            <span class="owner-stat-value ${sharedStats.balance >= 0 ? 'positive' : 'negative'}">
+                                ${sharedStats.balance >= 0 ? '+' : ''}${formatNumber(sharedStats.balance)}
+                            </span>
                         </div>
-                        <hr style="border: none; border-top: 1px solid var(--border-color); margin: 8px 0;">
-                        <div class="owner-stat-row">
-                            <span class="owner-stat-label">👤 Seb's Share (${(split.seb * 100).toFixed(0)}%)</span>
-                            <span class="owner-stat-value neutral">${formatNumber((sharedExpenses + sharedTransfers) * split.seb)}</span>
-                        </div>
-                        <div class="owner-stat-row">
-                            <span class="owner-stat-label">👤 Gea's Share (${(split.gea * 100).toFixed(0)}%)</span>
-                            <span class="owner-stat-value neutral">${formatNumber((sharedExpenses + sharedTransfers) * split.gea)}</span>
-                        </div>
-                        <div class="owner-stat-row highlight">
-                            <span class="owner-stat-label"><strong>💵 Total Monthly Need</strong></span>
-                            <span class="owner-stat-value negative">-${formatNumber(sharedExpenses + sharedTransfers)}</span>
-                        </div>
+                        ${sharedStats.balance < 0 ? `
+                            <div style="background: rgba(244, 33, 46, 0.1); border-radius: 6px; padding: 10px; margin-top: 12px; font-size: 12px; color: var(--accent-red);">
+                                ⚠️ Shortfall! Need ${formatNumber(Math.abs(sharedStats.balance))} more per month
+                            </div>
+                        ` : sharedStats.balance > 500 ? `
+                            <div style="background: rgba(0, 186, 124, 0.1); border-radius: 6px; padding: 10px; margin-top: 12px; font-size: 12px; color: var(--accent-green);">
+                                ✅ Surplus of ${formatNumber(sharedStats.balance)}/month
+                            </div>
+                        ` : ''}
                     </div>
                 </div>
             `;
@@ -2544,93 +2803,97 @@
 
         function renderTransferCalculator() {
             const transfer = calculateTransferNeeds();
-            const sebStats = calculateOwnerStats('Seb');
-            const geaStats = calculateOwnerStats('Gea');
             const split = getSharedSplit();
-
-            // Get detailed breakdown of shared expenses
-            const sharedExpensesList = budgetLines
-                .filter(l => l.owner === 'Shared' && l.type === 'Expense')
-                .map(l => ({
-                    title: l.title,
-                    avg: MONTHS.reduce((s, m) => s + (l.monthlyValues?.[m] || 0), 0) / 12
-                }))
-                .sort((a, b) => b.avg - a.avg);
-
-            const sharedTransfersList = budgetLines
-                .filter(l => l.owner === 'Shared' && l.type === 'Transfer')
-                .map(l => ({
-                    title: l.title,
-                    avg: MONTHS.reduce((s, m) => s + (l.monthlyValues?.[m] || 0), 0) / 12
-                }))
-                .sort((a, b) => b.avg - a.avg);
+            const sharedStats = calculateSharedAccountStats();
 
             // Summary row
             document.getElementById('transferSummaryRow').innerHTML = `
                 <div class="summary-item">
-                    <div class="summary-item-label">Seb → Shared Account</div>
-                    <div class="summary-item-value" style="color: var(--seb-color);">${formatNumber(transfer.sebShare)}</div>
-                    <div class="summary-item-sub">${(split.seb * 100).toFixed(0)}% of shared costs</div>
-                </div>
-                <div class="summary-item">
-                    <div class="summary-item-label">Gea → Shared Account</div>
-                    <div class="summary-item-value" style="color: var(--gea-color);">${formatNumber(transfer.geaShare)}</div>
-                    <div class="summary-item-sub">${(split.gea * 100).toFixed(0)}% of shared costs</div>
-                </div>
-                <div class="summary-item">
                     <div class="summary-item-label">Total Shared Costs</div>
-                    <div class="summary-item-value" style="color: var(--shared-color);">${formatNumber(transfer.totalSharedExpenses)}</div>
-                    <div class="summary-item-sub">Monthly household expenses + transfers</div>
+                    <div class="summary-item-value" style="color: var(--accent-red);">${formatNumber(transfer.totalSharedCosts)}</div>
+                    <div class="summary-item-sub">Monthly outflows from shared account</div>
+                </div>
+                <div class="summary-item">
+                    <div class="summary-item-label">Current Incoming</div>
+                    <div class="summary-item-value" style="color: var(--accent-green);">${formatNumber(transfer.sebCurrentTransfer + transfer.geaCurrentTransfer + transfer.sharedIncome)}</div>
+                    <div class="summary-item-sub">Transfers + shared income</div>
+                </div>
+                <div class="summary-item">
+                    <div class="summary-item-label">Monthly Balance</div>
+                    <div class="summary-item-value ${transfer.sharedAccountBalance >= 0 ? 'stat-positive' : 'stat-negative'}">
+                        ${transfer.sharedAccountBalance >= 0 ? '+' : ''}${formatNumber(transfer.sharedAccountBalance)}
+                    </div>
+                    <div class="summary-item-sub">${transfer.sharedAccountBalance >= 0 ? 'Surplus ✅' : 'Shortfall ⚠️'}</div>
                 </div>
             `;
 
             // Detailed breakdown
             document.getElementById('transferGrid').innerHTML = `
                 <div class="transfer-box">
-                    <h4 style="color: var(--seb-color);">👤 Seb's Monthly Breakdown</h4>
+                    <h4 style="color: var(--shared-color);">🏠 Shared Account Needs</h4>
                     <div class="transfer-item">
-                        <span class="transfer-item-label">Personal Expenses</span>
-                        <span class="transfer-item-value">${formatNumber(sebStats.personalExpenses)}</span>
+                        <span class="transfer-item-label">Total Monthly Costs</span>
+                        <span class="transfer-item-value" style="color: var(--accent-red);">${formatNumber(transfer.totalSharedCosts)}</span>
                     </div>
                     <div class="transfer-item">
-                        <span class="transfer-item-label">Personal Transfers (savings, etc.)</span>
-                        <span class="transfer-item-value">${formatNumber(sebStats.personalTransfers)}</span>
-                    </div>
-                    <div class="transfer-item">
-                        <span class="transfer-item-label">Share of Shared Expenses</span>
-                        <span class="transfer-item-value">${formatNumber(sebStats.shareOfSharedExpenses)}</span>
-                    </div>
-                    <div class="transfer-item">
-                        <span class="transfer-item-label">Share of Shared Transfers</span>
-                        <span class="transfer-item-value">${formatNumber(sebStats.shareOfSharedTransfers)}</span>
+                        <span class="transfer-item-label">Shared Income (e.g., child support)</span>
+                        <span class="transfer-item-value" style="color: var(--accent-green);">-${formatNumber(transfer.sharedIncome)}</span>
                     </div>
                     <div class="transfer-total">
-                        <span class="transfer-total-label">Total Monthly Obligations</span>
-                        <span class="transfer-total-value" style="color: var(--seb-color);">${formatNumber(sebStats.totalObligations)}</span>
+                        <span class="transfer-total-label">Needs to be Covered</span>
+                        <span class="transfer-total-value" style="color: var(--text-primary);">${formatNumber(transfer.needsToBeCovered)}</span>
+                    </div>
+                    
+                    <div style="margin-top: 20px; padding-top: 16px; border-top: 1px dashed var(--border-color);">
+                        <h5 style="font-size: 12px; color: var(--text-secondary); margin-bottom: 12px;">Split ${(split.seb * 100).toFixed(0)}% / ${(split.gea * 100).toFixed(0)}%:</h5>
+                        <div class="transfer-item">
+                            <span class="transfer-item-label">Seb should transfer</span>
+                            <span class="transfer-item-value" style="color: var(--seb-color);">${formatNumber(transfer.sebShouldTransfer)}</span>
+                        </div>
+                        <div class="transfer-item">
+                            <span class="transfer-item-label">Gea should transfer</span>
+                            <span class="transfer-item-value" style="color: var(--gea-color);">${formatNumber(transfer.geaShouldTransfer)}</span>
+                        </div>
                     </div>
                 </div>
 
                 <div class="transfer-box">
-                    <h4 style="color: var(--gea-color);">👤 Gea's Monthly Breakdown</h4>
-                    <div class="transfer-item">
-                        <span class="transfer-item-label">Personal Expenses</span>
-                        <span class="transfer-item-value">${formatNumber(geaStats.personalExpenses)}</span>
+                    <h4>📊 Current vs Required</h4>
+                    
+                    <div style="margin-bottom: 20px;">
+                        <h5 style="font-size: 12px; color: var(--seb-color); margin-bottom: 8px;">👤 Seb</h5>
+                        <div class="transfer-item">
+                            <span class="transfer-item-label">Currently transferring</span>
+                            <span class="transfer-item-value">${formatNumber(transfer.sebCurrentTransfer)}</span>
+                        </div>
+                        <div class="transfer-item">
+                            <span class="transfer-item-label">Should transfer</span>
+                            <span class="transfer-item-value">${formatNumber(transfer.sebShouldTransfer)}</span>
+                        </div>
+                        <div class="transfer-item" style="background: ${transfer.sebDifference <= 0 ? 'rgba(0, 186, 124, 0.1)' : 'rgba(244, 33, 46, 0.1)'}; margin: 8px -20px; padding: 8px 20px;">
+                            <span class="transfer-item-label"><strong>Difference</strong></span>
+                            <span class="transfer-item-value" style="color: ${transfer.sebDifference <= 0 ? 'var(--accent-green)' : 'var(--accent-red)'};">
+                                ${transfer.sebDifference <= 0 ? '✅' : '⚠️'} ${transfer.sebDifference > 0 ? '+' : ''}${formatNumber(transfer.sebDifference)}
+                            </span>
+                        </div>
                     </div>
-                    <div class="transfer-item">
-                        <span class="transfer-item-label">Personal Transfers (savings, etc.)</span>
-                        <span class="transfer-item-value">${formatNumber(geaStats.personalTransfers)}</span>
-                    </div>
-                    <div class="transfer-item">
-                        <span class="transfer-item-label">Share of Shared Expenses</span>
-                        <span class="transfer-item-value">${formatNumber(geaStats.shareOfSharedExpenses)}</span>
-                    </div>
-                    <div class="transfer-item">
-                        <span class="transfer-item-label">Share of Shared Transfers</span>
-                        <span class="transfer-item-value">${formatNumber(geaStats.shareOfSharedTransfers)}</span>
-                    </div>
-                    <div class="transfer-total">
-                        <span class="transfer-total-label">Total Monthly Obligations</span>
-                        <span class="transfer-total-value" style="color: var(--gea-color);">${formatNumber(geaStats.totalObligations)}</span>
+                    
+                    <div>
+                        <h5 style="font-size: 12px; color: var(--gea-color); margin-bottom: 8px;">👤 Gea</h5>
+                        <div class="transfer-item">
+                            <span class="transfer-item-label">Currently transferring</span>
+                            <span class="transfer-item-value">${formatNumber(transfer.geaCurrentTransfer)}</span>
+                        </div>
+                        <div class="transfer-item">
+                            <span class="transfer-item-label">Should transfer</span>
+                            <span class="transfer-item-value">${formatNumber(transfer.geaShouldTransfer)}</span>
+                        </div>
+                        <div class="transfer-item" style="background: ${transfer.geaDifference <= 0 ? 'rgba(0, 186, 124, 0.1)' : 'rgba(244, 33, 46, 0.1)'}; margin: 8px -20px; padding: 8px 20px;">
+                            <span class="transfer-item-label"><strong>Difference</strong></span>
+                            <span class="transfer-item-value" style="color: ${transfer.geaDifference <= 0 ? 'var(--accent-green)' : 'var(--accent-red)'};">
+                                ${transfer.geaDifference <= 0 ? '✅' : '⚠️'} ${transfer.geaDifference > 0 ? '+' : ''}${formatNumber(transfer.geaDifference)}
+                            </span>
+                        </div>
                     </div>
                 </div>
             `;
@@ -2889,8 +3152,8 @@
         function renderIncomeVsExpenseChart() {
             const ctx = document.getElementById('incomeVsExpenseChart').getContext('2d');
             
-            const sebStats = calculateOwnerStats('Seb');
-            const geaStats = calculateOwnerStats('Gea');
+            const sebSalaryStats = calculateSalaryAccountStats('Seb');
+            const geaSalaryStats = calculateSalaryAccountStats('Gea');
 
             if (incomeVsExpenseChart) incomeVsExpenseChart.destroy();
 
@@ -2905,16 +3168,23 @@
                     datasets: [
                         {
                             label: 'Income',
-                            data: [sebStats.personalIncome, geaStats.personalIncome],
+                            data: [sebSalaryStats.totalIncome, geaSalaryStats.totalIncome],
                             backgroundColor: 'rgba(0, 186, 124, 0.7)',
                             borderColor: 'rgba(0, 186, 124, 1)',
                             borderWidth: 1
                         },
                         {
-                            label: 'Total Obligations',
-                            data: [sebStats.totalObligations, geaStats.totalObligations],
+                            label: 'Outflows',
+                            data: [sebSalaryStats.totalOutflows, geaSalaryStats.totalOutflows],
                             backgroundColor: 'rgba(244, 33, 46, 0.7)',
                             borderColor: 'rgba(244, 33, 46, 1)',
+                            borderWidth: 1
+                        },
+                        {
+                            label: 'Disposable',
+                            data: [sebSalaryStats.disposableIncome, geaSalaryStats.disposableIncome],
+                            backgroundColor: 'rgba(29, 155, 240, 0.7)',
+                            borderColor: 'rgba(29, 155, 240, 1)',
                             borderWidth: 1
                         }
                     ]
@@ -2950,6 +3220,12 @@
             const modal = document.getElementById('entityModal');
             const title = document.getElementById('entityModalTitle');
             
+            // Populate parent account dropdown with all accounts
+            const parentAccountSelect = document.getElementById('entityParentAccount');
+            const accountEntities = entities.filter(e => e.type === 'Account');
+            parentAccountSelect.innerHTML = '<option value="">— No parent account —</option>' +
+                accountEntities.map(e => `<option value="${e.id}">${e.name} (${e.owner})</option>`).join('');
+            
             if (entityId) {
                 title.textContent = 'Edit Entity';
                 const entity = entities.find(e => e.id === entityId);
@@ -2957,8 +3233,9 @@
                     document.getElementById('entityName').value = entity.name;
                     document.getElementById('entityDescription').value = entity.description || '';
                     document.getElementById('entityType').value = entity.type;
-                    updateEntityOwnerOptions();
+                    updateEntityTypeOptions();
                     document.getElementById('entityOwner').value = entity.owner;
+                    document.getElementById('entityParentAccount').value = entity.parentAccountId || '';
                 }
             } else {
                 title.textContent = 'Add Entity';
@@ -2966,7 +3243,8 @@
                 document.getElementById('entityDescription').value = '';
                 document.getElementById('entityType').value = 'Account';
                 document.getElementById('entityOwner').value = 'Shared';
-                updateEntityOwnerOptions();
+                document.getElementById('entityParentAccount').value = '';
+                updateEntityTypeOptions();
             }
             
             modal.classList.add('visible');
@@ -2982,6 +3260,7 @@
             const description = document.getElementById('entityDescription').value.trim();
             const type = document.getElementById('entityType').value;
             const owner = document.getElementById('entityOwner').value;
+            const parentAccountId = document.getElementById('entityParentAccount').value || null;
 
             if (!name) {
                 showToast('Entity name is required', 'error');
@@ -2989,6 +3268,11 @@
             }
 
             const entityData = { name, description, type, owner };
+            
+            // Only save parentAccountId for cards
+            if (type === 'Card') {
+                entityData.parentAccountId = parentAccountId;
+            }
 
             try {
                 if (editingEntityId) {
@@ -3030,7 +3314,7 @@
             if (entities.length === 0) {
                 tbody.innerHTML = `
                     <tr>
-                        <td colspan="6" class="empty-state">
+                        <td colspan="7" class="empty-state">
                             <h3>No entities yet</h3>
                             <p>Add accounts, cards, or creditors to get started.</p>
                         </td>
@@ -3041,6 +3325,20 @@
 
             tbody.innerHTML = entities.map(entity => {
                 const typeClass = entity.type.toLowerCase().replace(' ', '-');
+                
+                // Parent account display for cards
+                let parentAccountDisplay = '—';
+                if (entity.type === 'Card') {
+                    if (entity.parentAccountId) {
+                        const parentAccount = entities.find(e => e.id === entity.parentAccountId);
+                        parentAccountDisplay = parentAccount ? 
+                            `<span style="color: var(--accent-green);">✓ ${parentAccount.name}</span>` : 
+                            '<span style="color: var(--accent-yellow);">⚠️ Unknown</span>';
+                    } else {
+                        parentAccountDisplay = '<span style="color: var(--accent-yellow);" title="Card has no parent account linked">⚠️ Not linked</span>';
+                    }
+                }
+                
                 return `
                 <tr>
                     <td><code style="font-size: 11px; color: var(--text-muted);">${entity.id.substring(0, 8)}...</code></td>
@@ -3050,6 +3348,7 @@
                         <span class="entity-type-badge entity-type-${typeClass}">${entity.type}</span>
                     </td>
                     <td>${entity.owner === 'All' ? '<em style="color: var(--text-muted);">All Owners</em>' : entity.owner}</td>
+                    <td>${parentAccountDisplay}</td>
                     <td>
                         <div class="row-actions">
                             <button onclick="showEntityModal('${entity.id}')" title="Edit">✏️</button>
@@ -3060,10 +3359,12 @@
             `}).join('');
         }
 
-        function updateEntityOwnerOptions() {
+        function updateEntityTypeOptions() {
             const entityType = document.getElementById('entityType').value;
             const allOption = document.querySelector('#entityOwner option[value="All"]');
+            const parentAccountGroup = document.getElementById('parentAccountGroup');
             
+            // Show/hide "All" owner option for creditors and income sources
             if (entityType === 'Creditor' || entityType === 'Income Source') {
                 allOption.style.display = 'block';
             } else {
@@ -3071,6 +3372,13 @@
                 if (document.getElementById('entityOwner').value === 'All') {
                     document.getElementById('entityOwner').value = 'Shared';
                 }
+            }
+            
+            // Show/hide parent account field for cards
+            if (entityType === 'Card') {
+                parentAccountGroup.style.display = 'block';
+            } else {
+                parentAccountGroup.style.display = 'none';
             }
         }
 
