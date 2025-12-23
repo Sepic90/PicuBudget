@@ -478,6 +478,52 @@
             color: var(--accent-yellow);
         }
 
+        /* Category Badge */
+        .category-badge {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 10px;
+            font-size: 10px;
+            font-weight: 500;
+            white-space: nowrap;
+        }
+
+        .category-color-preview {
+            display: inline-block;
+            width: 16px;
+            height: 16px;
+            border-radius: 4px;
+            vertical-align: middle;
+            margin-right: 6px;
+            border: 1px solid var(--border-color);
+        }
+
+        /* Color Picker Grid */
+        .color-picker-grid {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-top: 8px;
+        }
+
+        .color-option {
+            width: 32px;
+            height: 32px;
+            border-radius: 6px;
+            cursor: pointer;
+            border: 2px solid transparent;
+            transition: all 0.15s;
+        }
+
+        .color-option:hover {
+            transform: scale(1.1);
+        }
+
+        .color-option.selected {
+            border-color: var(--text-primary);
+            box-shadow: 0 0 0 2px var(--bg-secondary);
+        }
+
         .row-actions {
             display: flex;
             gap: 4px;
@@ -1439,6 +1485,12 @@
                             </select>
                         </div>
                         <div class="filter-group">
+                            <label>Category:</label>
+                            <select id="filterCategory">
+                                <option value="">All Categories</option>
+                            </select>
+                        </div>
+                        <div class="filter-group">
                             <label>From:</label>
                             <select id="filterSource"></select>
                         </div>
@@ -1481,6 +1533,7 @@
                                 <tr>
                                     <th style="width: 40px;"></th>
                                     <th style="cursor: pointer;" onclick="sortBudgetTable('title')">Title <span id="sort-title"></span></th>
+                                    <th style="cursor: pointer;" onclick="sortBudgetTable('category')">Category <span id="sort-category"></span></th>
                                     <th style="cursor: pointer;" onclick="sortBudgetTable('owner')">Owner <span id="sort-owner"></span></th>
                                     <th style="cursor: pointer;" onclick="sortBudgetTable('type')">Type <span id="sort-type"></span></th>
                                     <th>From</th>
@@ -1517,6 +1570,7 @@
                     <button class="stats-tab" data-panel="personal">👤 Personal Dashboards</button>
                     <button class="stats-tab" data-panel="transfers">💸 Transfer Calculator</button>
                     <button class="stats-tab" data-panel="breakdown">📋 Expense Breakdown</button>
+                    <button class="stats-tab" data-panel="categories">🏷️ By Category</button>
                 </div>
 
                 <!-- Overview Panel -->
@@ -1636,6 +1690,33 @@
                         </div>
                     </div>
                 </div>
+
+                <!-- Category Breakdown Panel -->
+                <div class="stats-panel" id="categoriesPanel">
+                    <div class="charts-grid" style="grid-template-columns: 1fr 1fr;">
+                        <div class="chart-card">
+                            <h3>🏷️ Expenses by Category (Monthly Average)</h3>
+                            <div class="chart-container">
+                                <canvas id="categoryPieChart"></canvas>
+                            </div>
+                        </div>
+                        <div class="chart-card">
+                            <h3>📊 Category Spending Over Time</h3>
+                            <div class="chart-container">
+                                <canvas id="categoryTrendChart"></canvas>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="expense-breakdown" style="margin-top: 20px;">
+                        <div class="expense-breakdown-header">
+                            <h3>📋 Category Summary</h3>
+                        </div>
+                        <div class="expense-list" id="categorySummaryList">
+                            <!-- Populated by JS -->
+                        </div>
+                    </div>
+                </div>
             </section>
 
             <!-- Savings View -->
@@ -1656,6 +1737,31 @@
 
             <!-- Settings View -->
             <section class="view-section" id="settingsView">
+                <div class="section-header">
+                    <h2>🏷️ Categories</h2>
+                    <button class="btn btn-primary" onclick="showCategoryModal()">+ Add Category</button>
+                </div>
+
+                <p style="color: var(--text-secondary); margin-bottom: 16px; font-size: 13px;">
+                    Create categories to tag and organize your transactions. Use them to analyze spending by type (e.g., Car, House, Child).
+                </p>
+
+                <div class="budget-table-container" style="margin-bottom: 32px;">
+                    <table class="entities-table" id="categoriesTable">
+                        <thead>
+                            <tr>
+                                <th style="width: 40px;">Color</th>
+                                <th style="cursor: pointer;" onclick="sortCategoriesTable('name')">Name <span id="categories-sort-name"></span></th>
+                                <th>Icon</th>
+                                <th style="cursor: pointer;" onclick="sortCategoriesTable('count')">Transactions <span id="categories-sort-count"></span></th>
+                                <th style="width: 100px;">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="categoriesTableBody">
+                        </tbody>
+                    </table>
+                </div>
+
                 <div class="section-header">
                     <h2>⚙️ Infrastructure Manager</h2>
                     <button class="btn btn-primary" onclick="showEntityModal()">+ Add Entity</button>
@@ -1767,6 +1873,18 @@
                             <option value="Confirmed">Confirmed</option>
                             <option value="Needs Update">Needs Update</option>
                         </select>
+                    </div>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Category <span style="color: var(--text-muted); font-weight: normal;">(optional)</span></label>
+                        <select id="txCategory">
+                            <option value="">— No Category —</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <!-- Empty for alignment -->
                     </div>
                 </div>
 
@@ -2007,6 +2125,37 @@
         </div>
     </div>
 
+    <!-- Category Modal -->
+    <div class="modal-overlay" id="categoryModal">
+        <div class="modal" style="width: 400px;">
+            <div class="modal-header">
+                <h2 id="categoryModalTitle">Add Category</h2>
+                <button class="modal-close" onclick="closeCategoryModal()">×</button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label>Name *</label>
+                    <input type="text" id="categoryName" placeholder="e.g., Car, House, Child">
+                </div>
+                <div class="form-group">
+                    <label>Icon <span style="color: var(--text-muted); font-weight: normal;">(emoji)</span></label>
+                    <input type="text" id="categoryIcon" placeholder="e.g., 🚗, 🏠, 👶" maxlength="4">
+                </div>
+                <div class="form-group">
+                    <label>Color</label>
+                    <div class="color-picker-grid" id="colorPickerGrid">
+                        <!-- Colors will be populated by JS -->
+                    </div>
+                    <input type="hidden" id="categoryColor" value="#6366f1">
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="closeCategoryModal()">Cancel</button>
+                <button class="btn btn-primary" onclick="saveCategory()">Save Category</button>
+            </div>
+        </div>
+    </div>
+
     <!-- Add Year Modal -->
     <div class="modal-overlay" id="addYearModal">
         <div class="modal" style="width: 400px;">
@@ -2127,6 +2276,18 @@
         let expenseTrendChart = null;
         let incomeVsExpenseChart = null;
 
+        // Category state
+        let categories = [];
+        let editingCategoryId = null;
+        let categoryPieChart = null;
+        let categoryTrendChart = null;
+        
+        const CATEGORY_COLORS = [
+            '#6366f1', '#8b5cf6', '#a855f7', '#d946ef', '#ec4899', '#f43f5e',
+            '#ef4444', '#f97316', '#f59e0b', '#eab308', '#84cc16', '#22c55e',
+            '#10b981', '#14b8a6', '#06b6d4', '#0ea5e9', '#3b82f6', '#6366f1'
+        ];
+
         const MONTHS = ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec'];
         const MONTH_LABELS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
@@ -2161,9 +2322,11 @@
             
             await loadYears();
             await loadEntities();
+            await loadCategories();
             await loadBudgetLines();
             
             populateFilterDropdowns();
+            populateCategoryDropdowns();
             setupFilterListeners();
             setupSplitConfigListener();
             
@@ -2280,6 +2443,21 @@
             }
 
             showToast('Default entities created', 'success');
+        }
+
+        async function loadCategories() {
+            try {
+                const snapshot = await db.collection('categories').get();
+                categories = [];
+                snapshot.forEach(doc => {
+                    categories.push({ id: doc.id, ...doc.data() });
+                });
+                categories.sort((a, b) => a.name.localeCompare(b.name));
+                renderCategoriesTable();
+            } catch (error) {
+                console.error('Error loading categories:', error);
+                showToast('Error loading categories', 'error');
+            }
         }
 
         async function loadBudgetLines() {
@@ -2624,6 +2802,8 @@
             renderCreditorChart();
             renderExpenseTrendChart();
             renderIncomeVsExpenseChart();
+            renderCategoryCharts();
+            renderCategorySummary();
         }
 
         // Alias for backward compatibility
@@ -3239,6 +3419,201 @@
             });
         }
 
+        function renderCategoryCharts() {
+            renderCategoryPieChart();
+            renderCategoryTrendChart();
+        }
+
+        function renderCategoryPieChart() {
+            const ctx = document.getElementById('categoryPieChart');
+            if (!ctx) return;
+            
+            // Get expense totals by category
+            const categoryTotals = {};
+            let uncategorizedTotal = 0;
+            
+            budgetLines.filter(l => l.type === 'Expense').forEach(line => {
+                const avg = MONTHS.reduce((s, m) => s + (line.monthlyValues?.[m] || 0), 0) / 12;
+                if (line.categoryId) {
+                    categoryTotals[line.categoryId] = (categoryTotals[line.categoryId] || 0) + avg;
+                } else {
+                    uncategorizedTotal += avg;
+                }
+            });
+            
+            // Build chart data
+            const labels = [];
+            const data = [];
+            const colors = [];
+            
+            categories.forEach(cat => {
+                if (categoryTotals[cat.id]) {
+                    labels.push(`${cat.icon || '📦'} ${cat.name}`);
+                    data.push(categoryTotals[cat.id]);
+                    colors.push(cat.color);
+                }
+            });
+            
+            if (uncategorizedTotal > 0) {
+                labels.push('📦 Uncategorized');
+                data.push(uncategorizedTotal);
+                colors.push('#6b7280');
+            }
+            
+            if (categoryPieChart) categoryPieChart.destroy();
+            
+            const isDark = document.documentElement.getAttribute('data-theme') !== 'light';
+            const textColor = isDark ? '#8b98a5' : '#57606a';
+            
+            categoryPieChart = new Chart(ctx.getContext('2d'), {
+                type: 'doughnut',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        data: data,
+                        backgroundColor: colors.map(c => c + 'cc'),
+                        borderColor: colors,
+                        borderWidth: 2
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { 
+                            position: 'right', 
+                            labels: { color: textColor }
+                        }
+                    }
+                }
+            });
+        }
+
+        function renderCategoryTrendChart() {
+            const ctx = document.getElementById('categoryTrendChart');
+            if (!ctx) return;
+            
+            // Get top 5 categories by total expense
+            const categoryTotals = {};
+            budgetLines.filter(l => l.type === 'Expense' && l.categoryId).forEach(line => {
+                const total = MONTHS.reduce((s, m) => s + (line.monthlyValues?.[m] || 0), 0);
+                categoryTotals[line.categoryId] = (categoryTotals[line.categoryId] || 0) + total;
+            });
+            
+            const topCategories = Object.entries(categoryTotals)
+                .sort((a, b) => b[1] - a[1])
+                .slice(0, 5)
+                .map(([id]) => categories.find(c => c.id === id))
+                .filter(Boolean);
+            
+            // Build monthly data for each category
+            const datasets = topCategories.map(cat => {
+                const monthlyData = MONTHS.map(month => 
+                    budgetLines
+                        .filter(l => l.type === 'Expense' && l.categoryId === cat.id)
+                        .reduce((sum, l) => sum + (l.monthlyValues?.[month] || 0), 0)
+                );
+                
+                return {
+                    label: `${cat.icon || '📦'} ${cat.name}`,
+                    data: monthlyData,
+                    borderColor: cat.color,
+                    backgroundColor: cat.color + '20',
+                    fill: false,
+                    tension: 0.3
+                };
+            });
+            
+            if (categoryTrendChart) categoryTrendChart.destroy();
+            
+            const isDark = document.documentElement.getAttribute('data-theme') !== 'light';
+            const gridColor = isDark ? 'rgba(58, 65, 73, 0.5)' : 'rgba(208, 215, 222, 0.5)';
+            const textColor = isDark ? '#8b98a5' : '#57606a';
+            
+            categoryTrendChart = new Chart(ctx.getContext('2d'), {
+                type: 'line',
+                data: {
+                    labels: MONTH_LABELS,
+                    datasets: datasets
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { position: 'top', labels: { color: textColor } }
+                    },
+                    scales: {
+                        x: { grid: { color: gridColor }, ticks: { color: textColor } },
+                        y: { grid: { color: gridColor }, ticks: { color: textColor } }
+                    }
+                }
+            });
+        }
+
+        function renderCategorySummary() {
+            const container = document.getElementById('categorySummaryList');
+            if (!container) return;
+            
+            // Get expense totals by category
+            const categoryTotals = {};
+            let uncategorizedTotal = 0;
+            let totalExpenses = 0;
+            
+            budgetLines.filter(l => l.type === 'Expense').forEach(line => {
+                const avg = MONTHS.reduce((s, m) => s + (line.monthlyValues?.[m] || 0), 0) / 12;
+                totalExpenses += avg;
+                if (line.categoryId) {
+                    categoryTotals[line.categoryId] = (categoryTotals[line.categoryId] || 0) + avg;
+                } else {
+                    uncategorizedTotal += avg;
+                }
+            });
+            
+            // Build summary list
+            const items = [];
+            
+            categories.forEach(cat => {
+                if (categoryTotals[cat.id]) {
+                    items.push({
+                        name: cat.name,
+                        icon: cat.icon || '📦',
+                        color: cat.color,
+                        amount: categoryTotals[cat.id],
+                        percent: totalExpenses > 0 ? (categoryTotals[cat.id] / totalExpenses * 100) : 0,
+                        count: budgetLines.filter(l => l.categoryId === cat.id).length
+                    });
+                }
+            });
+            
+            if (uncategorizedTotal > 0) {
+                items.push({
+                    name: 'Uncategorized',
+                    icon: '📦',
+                    color: '#6b7280',
+                    amount: uncategorizedTotal,
+                    percent: totalExpenses > 0 ? (uncategorizedTotal / totalExpenses * 100) : 0,
+                    count: budgetLines.filter(l => l.type === 'Expense' && !l.categoryId).length
+                });
+            }
+            
+            // Sort by amount descending
+            items.sort((a, b) => b.amount - a.amount);
+            
+            const maxAmount = items.length > 0 ? items[0].amount : 1;
+            
+            container.innerHTML = items.map(item => `
+                <div class="expense-item">
+                    <span class="expense-name">${item.icon} ${item.name}</span>
+                    <span style="width: 60px; text-align: center; font-size: 11px; color: var(--text-muted);">${item.count} tx</span>
+                    <div class="expense-bar-container">
+                        <div class="expense-bar" style="width: ${(item.amount / maxAmount) * 100}%; background: ${item.color};"></div>
+                    </div>
+                    <span class="expense-amount">${formatNumber(item.amount)}</span>
+                    <span style="width: 50px; text-align: right; font-size: 11px; color: var(--text-muted);">${item.percent.toFixed(1)}%</span>
+                </div>
+            `).join('') || '<div class="empty-state"><p>No categorized expenses</p></div>';
+        }
+
         // =====================================================
         // ENTITY FUNCTIONS (CRUD)
         // =====================================================
@@ -3513,6 +3888,229 @@
         }
 
         // =====================================================
+        // CATEGORY FUNCTIONS (CRUD)
+        // =====================================================
+        function getCategoryById(categoryId) {
+            return categories.find(c => c.id === categoryId);
+        }
+
+        function getCategoryBadgeHtml(categoryId) {
+            if (!categoryId) return '<span style="color: var(--text-muted);">—</span>';
+            const category = getCategoryById(categoryId);
+            if (!category) return '<span style="color: var(--text-muted);">—</span>';
+            
+            const bgColor = category.color + '20';
+            const borderColor = category.color + '40';
+            return `<span class="category-badge" style="background: ${bgColor}; border: 1px solid ${borderColor}; color: ${category.color};">${category.icon || '📦'} ${category.name}</span>`;
+        }
+
+        function populateCategoryDropdowns() {
+            const dropdowns = ['filterCategory', 'txCategory', 'breakdownCategoryFilter'];
+            dropdowns.forEach(id => {
+                const el = document.getElementById(id);
+                if (!el) return;
+                
+                const isFilter = id.includes('filter') || id.includes('Filter');
+                el.innerHTML = isFilter 
+                    ? '<option value="">All Categories</option><option value="__uncategorized__">📦 Uncategorized</option>'
+                    : '<option value="">— No Category —</option>';
+                
+                categories.forEach(cat => {
+                    el.innerHTML += `<option value="${cat.id}" style="color: ${cat.color};">${cat.icon || '📦'} ${cat.name}</option>`;
+                });
+            });
+        }
+
+        function populateColorPicker(selectedColor = '#6366f1') {
+            const grid = document.getElementById('colorPickerGrid');
+            grid.innerHTML = CATEGORY_COLORS.map(color => `
+                <div class="color-option ${color === selectedColor ? 'selected' : ''}" 
+                     style="background: ${color};" 
+                     data-color="${color}"
+                     onclick="selectCategoryColor('${color}')"></div>
+            `).join('');
+        }
+
+        function selectCategoryColor(color) {
+            document.getElementById('categoryColor').value = color;
+            document.querySelectorAll('.color-option').forEach(el => {
+                el.classList.toggle('selected', el.dataset.color === color);
+            });
+        }
+
+        function showCategoryModal(categoryId = null) {
+            editingCategoryId = categoryId;
+            const modal = document.getElementById('categoryModal');
+            const title = document.getElementById('categoryModalTitle');
+            
+            if (categoryId) {
+                title.textContent = 'Edit Category';
+                const category = getCategoryById(categoryId);
+                if (category) {
+                    document.getElementById('categoryName').value = category.name;
+                    document.getElementById('categoryIcon').value = category.icon || '';
+                    document.getElementById('categoryColor').value = category.color || '#6366f1';
+                    populateColorPicker(category.color || '#6366f1');
+                }
+            } else {
+                title.textContent = 'Add Category';
+                document.getElementById('categoryName').value = '';
+                document.getElementById('categoryIcon').value = '';
+                document.getElementById('categoryColor').value = '#6366f1';
+                populateColorPicker('#6366f1');
+            }
+            
+            modal.classList.add('visible');
+        }
+
+        function closeCategoryModal() {
+            document.getElementById('categoryModal').classList.remove('visible');
+            editingCategoryId = null;
+        }
+
+        async function saveCategory() {
+            const name = document.getElementById('categoryName').value.trim();
+            const icon = document.getElementById('categoryIcon').value.trim();
+            const color = document.getElementById('categoryColor').value;
+
+            if (!name) {
+                showToast('Category name is required', 'error');
+                return;
+            }
+
+            const categoryData = { name, icon, color };
+
+            try {
+                if (editingCategoryId) {
+                    await db.collection('categories').doc(editingCategoryId).update(categoryData);
+                    showToast('Category updated successfully', 'success');
+                } else {
+                    await db.collection('categories').add(categoryData);
+                    showToast('Category created successfully', 'success');
+                }
+                
+                closeCategoryModal();
+                await loadCategories();
+                populateCategoryDropdowns();
+                renderBudgetTable();
+            } catch (error) {
+                console.error('Error saving category:', error);
+                showToast('Error saving category', 'error');
+            }
+        }
+
+        async function deleteCategory(categoryId) {
+            const category = getCategoryById(categoryId);
+            const affectedCount = budgetLines.filter(l => l.categoryId === categoryId).length;
+            
+            const message = affectedCount > 0 
+                ? `Are you sure you want to delete "${category?.name}"? ${affectedCount} transaction(s) will have their category removed.`
+                : `Are you sure you want to delete "${category?.name}"?`;
+            
+            showDeleteConfirmation(message, async () => {
+                try {
+                    // Remove categoryId from affected budget lines
+                    if (affectedCount > 0) {
+                        const batch = db.batch();
+                        const snapshot = await db.collection('budgetLines')
+                            .where('categoryId', '==', categoryId)
+                            .get();
+                        snapshot.forEach(doc => {
+                            batch.update(doc.ref, { categoryId: null });
+                        });
+                        await batch.commit();
+                    }
+                    
+                    await db.collection('categories').doc(categoryId).delete();
+                    showToast('Category deleted successfully', 'success');
+                    await loadCategories();
+                    await loadBudgetLines();
+                    populateCategoryDropdowns();
+                } catch (error) {
+                    console.error('Error deleting category:', error);
+                    showToast('Error deleting category', 'error');
+                }
+            });
+        }
+
+        function renderCategoriesTable() {
+            const tbody = document.getElementById('categoriesTableBody');
+            
+            if (categories.length === 0) {
+                tbody.innerHTML = `
+                    <tr>
+                        <td colspan="5" class="empty-state">
+                            <h3>No categories yet</h3>
+                            <p>Create categories to organize and tag your transactions.</p>
+                        </td>
+                    </tr>
+                `;
+                return;
+            }
+
+            tbody.innerHTML = categories.map(cat => {
+                const txCount = budgetLines.filter(l => l.categoryId === cat.id).length;
+                return `
+                    <tr>
+                        <td><span class="category-color-preview" style="background: ${cat.color};"></span></td>
+                        <td><strong>${cat.name}</strong></td>
+                        <td style="font-size: 18px;">${cat.icon || '📦'}</td>
+                        <td>${txCount} transaction${txCount !== 1 ? 's' : ''}</td>
+                        <td>
+                            <div class="row-actions">
+                                <button onclick="showCategoryModal('${cat.id}')" title="Edit">✏️</button>
+                                <button onclick="deleteCategory('${cat.id}')" title="Delete">🗑️</button>
+                            </div>
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+        }
+
+        // State for categories table sorting
+        let categoriesSortColumn = null;
+        let categoriesSortDirection = 'asc';
+
+        function sortCategoriesTable(column) {
+            if (categoriesSortColumn === column) {
+                categoriesSortDirection = categoriesSortDirection === 'asc' ? 'desc' : 'asc';
+            } else {
+                categoriesSortColumn = column;
+                categoriesSortDirection = 'asc';
+            }
+
+            document.querySelectorAll('[id^="categories-sort-"]').forEach(span => span.textContent = '');
+            const indicator = document.getElementById(`categories-sort-${column}`);
+            if (indicator) {
+                indicator.textContent = categoriesSortDirection === 'asc' ? '▲' : '▼';
+            }
+
+            const sortedCategories = [...categories].sort((a, b) => {
+                let aVal, bVal;
+                
+                if (column === 'name') {
+                    aVal = a.name.toLowerCase();
+                    bVal = b.name.toLowerCase();
+                } else if (column === 'count') {
+                    aVal = budgetLines.filter(l => l.categoryId === a.id).length;
+                    bVal = budgetLines.filter(l => l.categoryId === b.id).length;
+                }
+
+                if (typeof aVal === 'number') {
+                    return categoriesSortDirection === 'asc' ? aVal - bVal : bVal - aVal;
+                }
+                return categoriesSortDirection === 'asc' 
+                    ? (aVal < bVal ? -1 : aVal > bVal ? 1 : 0)
+                    : (aVal > bVal ? -1 : aVal < bVal ? 1 : 0);
+            });
+
+            const originalCategories = categories;
+            categories = sortedCategories;
+            renderCategoriesTable();
+            categories = originalCategories;
+        }
+
+        // =====================================================
         // TRANSACTION (BUDGET LINE) FUNCTIONS
         // =====================================================
         function showTransactionModal(lineId = null) {
@@ -3525,6 +4123,7 @@
             document.getElementById('txType').value = 'Expense';
             document.getElementById('txStatus').value = 'Confirmed';
             document.getElementById('txTransactionId').value = '';
+            document.getElementById('txCategory').value = '';
             document.getElementById('txAmount').value = '';
             document.getElementById('txFrequency').value = 'monthly';
             document.getElementById('txApplyFrom').value = '';
@@ -3548,6 +4147,7 @@
                     document.getElementById('txType').value = line.type;
                     document.getElementById('txStatus').value = line.status || 'Confirmed';
                     document.getElementById('txTransactionId').value = line.transactionId || '';
+                    document.getElementById('txCategory').value = line.categoryId || '';
                     
                     const values = MONTHS.map(m => line.monthlyValues?.[m] || 0);
                     const allSame = values.every(v => v === values[0]);
@@ -3703,6 +4303,7 @@
             const destinationId = document.getElementById('txDestination').value;
             const status = document.getElementById('txStatus').value;
             const transactionId = document.getElementById('txTransactionId').value.trim();
+            const categoryId = document.getElementById('txCategory').value || null;
 
             if (!title) {
                 showToast('Title is required', 'error');
@@ -3722,6 +4323,7 @@
                 destinationId,
                 status,
                 transactionId,
+                categoryId,
                 monthlyValues,
                 year: currentYear
             };
@@ -3772,6 +4374,7 @@
             
             const filterOwner = document.getElementById('filterOwner').value;
             const filterType = document.getElementById('filterType').value;
+            const filterCategory = document.getElementById('filterCategory').value;
             const filterSource = document.getElementById('filterSource').value;
             const filterDest = document.getElementById('filterDestination').value;
             const filterStatus = document.getElementById('filterStatus').value;
@@ -3779,6 +4382,11 @@
             
             if (filterOwner) filteredLines = filteredLines.filter(l => l.owner === filterOwner);
             if (filterType) filteredLines = filteredLines.filter(l => l.type === filterType);
+            if (filterCategory === '__uncategorized__') {
+                filteredLines = filteredLines.filter(l => !l.categoryId);
+            } else if (filterCategory) {
+                filteredLines = filteredLines.filter(l => l.categoryId === filterCategory);
+            }
             if (filterSource) filteredLines = filteredLines.filter(l => l.sourceId === filterSource);
             if (filterDest) filteredLines = filteredLines.filter(l => l.destinationId === filterDest);
             if (filterStatus) filteredLines = filteredLines.filter(l => l.status === filterStatus);
@@ -3797,7 +4405,7 @@
             if (filteredLines.length === 0) {
                 tbody.innerHTML = `
                     <tr>
-                        <td colspan="19" class="empty-state">
+                        <td colspan="20" class="empty-state">
                             <h3>No budget lines found</h3>
                             <p>Add your first transaction to get started.</p>
                         </td>
@@ -3821,6 +4429,7 @@
                             </div>
                         </td>
                         <td><strong>${line.title}</strong></td>
+                        <td>${getCategoryBadgeHtml(line.categoryId)}</td>
                         <td>${line.owner}</td>
                         <td><span class="type-badge type-${line.type.toLowerCase()}">${line.type}</span></td>
                         <td>${getEntityName(line.sourceId)}</td>
@@ -3858,17 +4467,17 @@
 
             tfoot.innerHTML = `
                 <tr>
-                    <td colspan="6" style="text-align: right; font-weight: 600; color: var(--accent-green);">Total Income</td>
+                    <td colspan="7" style="text-align: right; font-weight: 600; color: var(--accent-green);">Total Income</td>
                     ${MONTHS.map(m => `<td class="month-val" style="color: var(--accent-green);">${formatNumber(totals.income[m])}</td>`).join('')}
                     <td class="avg-val" style="color: var(--accent-green);">${formatNumber(avgIncome)}</td>
                 </tr>
                 <tr>
-                    <td colspan="6" style="text-align: right; font-weight: 600; color: var(--accent-red);">Total Expenses</td>
+                    <td colspan="7" style="text-align: right; font-weight: 600; color: var(--accent-red);">Total Expenses</td>
                     ${MONTHS.map(m => `<td class="month-val" style="color: var(--accent-red);">${formatNumber(totals.expense[m])}</td>`).join('')}
                     <td class="avg-val" style="color: var(--accent-red);">${formatNumber(avgExpense)}</td>
                 </tr>
                 <tr>
-                    <td colspan="6" style="text-align: right; font-weight: 600;">Net Cashflow</td>
+                    <td colspan="7" style="text-align: right; font-weight: 600;">Net Cashflow</td>
                     ${MONTHS.map(m => `<td class="month-val ${totals.net[m] >= 0 ? 'summary-positive' : 'summary-negative'}">${formatNumber(totals.net[m])}</td>`).join('')}
                     <td class="avg-val ${avgNet >= 0 ? 'summary-positive' : 'summary-negative'}">${formatNumber(avgNet)}</td>
                 </tr>
@@ -3902,6 +4511,7 @@
             
             const filterOwner = document.getElementById('filterOwner').value;
             const filterType = document.getElementById('filterType').value;
+            const filterCategory = document.getElementById('filterCategory').value;
             const filterSource = document.getElementById('filterSource').value;
             const filterDest = document.getElementById('filterDestination').value;
             const filterStatus = document.getElementById('filterStatus').value;
@@ -3909,6 +4519,11 @@
             
             if (filterOwner) filteredLines = filteredLines.filter(l => l.owner === filterOwner);
             if (filterType) filteredLines = filteredLines.filter(l => l.type === filterType);
+            if (filterCategory === '__uncategorized__') {
+                filteredLines = filteredLines.filter(l => !l.categoryId);
+            } else if (filterCategory) {
+                filteredLines = filteredLines.filter(l => l.categoryId === filterCategory);
+            }
             if (filterSource) filteredLines = filteredLines.filter(l => l.sourceId === filterSource);
             if (filterDest) filteredLines = filteredLines.filter(l => l.destinationId === filterDest);
             if (filterStatus) filteredLines = filteredLines.filter(l => l.status === filterStatus);
@@ -3924,6 +4539,11 @@
                 if (column === 'title') {
                     aVal = a.title.toLowerCase();
                     bVal = b.title.toLowerCase();
+                } else if (column === 'category') {
+                    const aCat = getCategoryById(a.categoryId);
+                    const bCat = getCategoryById(b.categoryId);
+                    aVal = aCat ? aCat.name.toLowerCase() : 'zzz';
+                    bVal = bCat ? bCat.name.toLowerCase() : 'zzz';
                 } else if (column === 'owner') {
                     aVal = a.owner;
                     bVal = b.owner;
@@ -3971,6 +4591,7 @@
                             </div>
                         </td>
                         <td><strong>${line.title}</strong></td>
+                        <td>${getCategoryBadgeHtml(line.categoryId)}</td>
                         <td>${line.owner}</td>
                         <td><span class="type-badge type-${line.type.toLowerCase()}">${line.type}</span></td>
                         <td>${getEntityName(line.sourceId)}</td>
@@ -4035,7 +4656,7 @@
         }
 
         function setupFilterListeners() {
-            ['filterOwner', 'filterType', 'filterSource', 'filterDestination', 'filterStatus'].forEach(id => {
+            ['filterOwner', 'filterType', 'filterCategory', 'filterSource', 'filterDestination', 'filterStatus'].forEach(id => {
                 document.getElementById(id).addEventListener('change', renderBudgetTable);
             });
             document.getElementById('filterTxId').addEventListener('input', renderBudgetTable);
