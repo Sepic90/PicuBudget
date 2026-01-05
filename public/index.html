@@ -2263,7 +2263,7 @@
         // =====================================================
         // GLOBAL STATE
         // =====================================================
-        let currentYear = new Date().getFullYear().toString();
+        let currentYear = '2025'; // Temporary: Will be set properly after loading years
         let entities = [];
         let budgetLines = [];
         let years = [];
@@ -2384,6 +2384,11 @@
                 }
 
                 years.sort((a, b) => parseInt(b.id) - parseInt(a.id));
+				
+				// Set currentYear to most recent year if current year doesn't exist
+                if (!years.find(y => y.id === new Date().getFullYear().toString())) {
+                    currentYear = years[0].id; // Use the most recent year that exists
+                }
 
                 const yearSelector = document.getElementById('yearSelector');
                 yearSelector.innerHTML = years.map(y => 
